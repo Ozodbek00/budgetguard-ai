@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>BudgetGuard.Domain</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- CS1591: we require XML docs on public detection APIs but not on every DTO member. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    ARCHITECTURAL INVARIANT: this project has zero PackageReference entries.
+    The domain layer must not depend on EF Core, ASP.NET Core, MediatR, or any
+    other framework. The detection algorithms are pure functions over plain
+    types so they can be unit tested and reasoned about in isolation.
+    See docs/adr/0001-clean-architecture-cqrs.md.
+  -->
+
+</Project>

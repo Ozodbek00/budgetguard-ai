@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BudgetGuard.Api/BudgetGuard.Api.csproj" />
+    <Project Path="src/BudgetGuard.Application/BudgetGuard.Application.csproj" />
+    <Project Path="src/BudgetGuard.Domain/BudgetGuard.Domain.csproj" />
+    <Project Path="src/BudgetGuard.Infrastructure/BudgetGuard.Infrastructure.csproj" />
+    <Project Path="src/BudgetGuard.Web/BudgetGuard.Web.csproj" />
+    <Project Path="tests/BudgetGuard.Application.Tests/BudgetGuard.Application.Tests.csproj" />
+    <Project Path="tests/BudgetGuard.Domain.Tests/BudgetGuard.Domain.Tests.csproj" />
+    <Project Path="tools/BudgetGuard.DataGenerator/BudgetGuard.DataGenerator.csproj" />
+  </Folder>
+</Solution>
