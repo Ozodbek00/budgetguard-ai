@@ -225,6 +225,31 @@ public sealed class AnomalyAggregatorTests
     }
 
     [Fact]
+    public void Vendor_findings_carry_the_scope_they_were_flagged_in_so_filters_do_not_hide_them()
+    {
+        // Regression: a vendor flagged purely for concentration had no category,
+        // so filtering the report to "Construction" dropped the very supplier
+        // dominating Construction — the filter hid the most important finding.
+        var report = Aggregator().Analyze(LedgerWithDoublyImplicatedVendor(), "test ledger");
+
+        var suspect = report.Findings.Single(f =>
+            f.SubjectType == AnomalySubjectType.Vendor && f.SubjectKey == "Suspect Vendor");
+
+        Assert.Equal("Construction", suspect.Category);
+        Assert.False(string.IsNullOrWhiteSpace(suspect.Department));
+    }
+
+    [Fact]
+    public void Every_vendor_finding_has_a_category_even_without_an_outlier_signal()
+    {
+        var report = Aggregator().Analyze(LedgerWithDoublyImplicatedVendor(), "test ledger");
+
+        Assert.All(
+            report.Findings.Where(f => f.SubjectType == AnomalySubjectType.Vendor),
+            f => Assert.False(string.IsNullOrWhiteSpace(f.Category)));
+    }
+
+    [Fact]
     public void Risk_scores_never_leave_the_zero_to_one_range()
     {
         var report = Aggregator().Analyze(LedgerWithDoublyImplicatedVendor(), "test ledger");

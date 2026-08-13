@@ -74,7 +74,7 @@ public sealed class AnomalyAggregator : IAnomalyAggregator
         var concentrationResult = _concentration.Analyze(transactions);
         signals.AddRange(ConcentrationSignals(concentrationResult));
 
-        var findings = Combine(signals, transactions, outlierFindings);
+        var findings = Combine(signals, transactions, outlierFindings, concentrationResult);
 
         return new AnomalyReport(
             datasetLabel,
@@ -218,15 +218,11 @@ public sealed class AnomalyAggregator : IAnomalyAggregator
     private List<AnomalyFinding> Combine(
         IReadOnlyList<AnomalySignal> signals,
         IReadOnlyList<ProcurementTransaction> transactions,
-        IReadOnlyList<OutlierFinding> outlierFindings)
+        IReadOnlyList<OutlierFinding> outlierFindings,
+        VendorConcentrationResult concentration)
     {
         var transactionsById = transactions.ToDictionary(t => t.Id.ToString());
-
-        // A vendor's category/department context, used to make vendor-level
-        // findings filterable alongside transaction-level ones.
-        var vendorContext = outlierFindings
-            .GroupBy(f => f.VendorName, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var vendorContext = BuildVendorContext(transactions, outlierFindings, concentration);
 
         var findings = new List<AnomalyFinding>();
 
@@ -269,8 +265,7 @@ public sealed class AnomalyAggregator : IAnomalyAggregator
             else if (subjectType == AnomalySubjectType.Vendor &&
                      vendorContext.TryGetValue(subjectKey, out var context))
             {
-                category = context.Category;
-                department = context.Department;
+                (category, department) = context;
             }
 
             findings.Add(new AnomalyFinding(
@@ -292,6 +287,65 @@ public sealed class AnomalyAggregator : IAnomalyAggregator
             .ThenBy(f => f.SubjectLabel, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
+
+    /// <summary>
+    /// Works out which category and department a vendor-level finding belongs
+    /// to, so vendor findings answer the report's category and department
+    /// filters alongside transaction-level ones.
+    /// <para>
+    /// Without this a vendor flagged purely for concentration carried no
+    /// context, so filtering the report to "Construction" silently dropped the
+    /// very supplier dominating Construction — the filter would quietly hide
+    /// the most important finding on the page.
+    /// </para>
+    /// <para>
+    /// A concentration finding already names its scope, so that is the most
+    /// precise source and is preferred. Otherwise the vendor's own transactions
+    /// decide it, by where they most often sit.
+    /// </para>
+    /// </summary>
+    private static Dictionary<string, (string? Category, string? Department)> BuildVendorContext(
+        IReadOnlyList<ProcurementTransaction> transactions,
+        IReadOnlyList<OutlierFinding> outlierFindings,
+        VendorConcentrationResult concentration)
+    {
+        var context = new Dictionary<string, (string? Category, string? Department)>(
+            StringComparer.OrdinalIgnoreCase);
+
+        // Least precise first; better sources overwrite as we go.
+        foreach (var group in transactions.GroupBy(t => t.VendorName.Trim(), StringComparer.OrdinalIgnoreCase))
+        {
+            context[group.Key] = (
+                Dominant(group.Select(t => t.Category)),
+                Dominant(group.Select(t => t.Department)));
+        }
+
+        foreach (var finding in outlierFindings)
+        {
+            context[finding.VendorName.Trim()] = (finding.Category, finding.Department);
+        }
+
+        foreach (var finding in concentration.Findings)
+        {
+            context.TryGetValue(finding.VendorName, out var existing);
+
+            context[finding.VendorName] = finding.Scope == ConcentrationScope.Category
+                ? (finding.ScopeKey, existing.Department)
+                : (existing.Category, finding.ScopeKey);
+        }
+
+        return context;
+    }
+
+    /// <summary>The value a vendor's transactions most commonly carry.</summary>
+    private static string? Dominant(IEnumerable<string> values) =>
+        values
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .GroupBy(v => v.Trim(), StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Count())
+            .ThenBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.Key)
+            .FirstOrDefault();
 
     private double WeightFor(DetectorKind detector) => detector switch
     {

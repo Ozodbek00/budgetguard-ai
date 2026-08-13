@@ -1,4 +1,4 @@
-# BudgetGuard AI
+﻿# BudgetGuard AI
 
 **Explainable statistical forensics for government procurement and budget
 spending.** Upload a spending dataset; get back a ranked list of anomalies where
@@ -6,7 +6,7 @@ every flag comes with the arithmetic behind it, in a sentence an auditor can
 verify by hand.
 
 [![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4)](https://dotnet.microsoft.com/)
-[![Tests](https://img.shields.io/badge/tests-182%20passing-2ea44f)](tests/)
+[![Tests](https://img.shields.io/badge/tests-184%20passing-2ea44f)](tests/)
 [![Architecture](https://img.shields.io/badge/architecture-Clean%20%2B%20CQRS-1c5d99)](docs/ARCHITECTURE.md)
 
 ---
@@ -15,7 +15,7 @@ verify by hand.
 
 Public procurement oversight runs on two unsatisfying options.
 
-**Manual audit** is trusted but does not scale — a reviewer sampling 200 of
+**Manual audit** is trusted but does not scale вЂ” a reviewer sampling 200 of
 50,000 payments finds what is in the sample.
 
 **Machine-learning anomaly detection** scales but is not trusted. It returns a
@@ -25,14 +25,14 @@ model scored something 0.87.
 
 ## The approach
 
-Classical statistical forensics — the techniques are decades old and
-court-tested — run automatically, with the reasoning exposed.
+Classical statistical forensics вЂ” the techniques are decades old and
+court-tested вЂ” run automatically, with the reasoning exposed.
 
 Instead of a score, BudgetGuard produces this:
 
 > **"Alfa Qurilish Invest" received 31.1% of all spend in category
 > "Construction" (16,446,676,399 of 52,946,940,210), versus an expected 5.3% if
-> the 19 vendors competing in that category shared it evenly — 5.9× the
+> the 19 vendors competing in that category shared it evenly вЂ” 5.9Г— the
 > even-split expectation. This is not a single large award: they hold 34 of 234
 > contracts (14.5%) where an even award process would give them about 12.3, an
 > excess of 6.4 standard deviations.**
@@ -43,7 +43,7 @@ Three independent detectors, each with a plain-language output:
 |---|---|
 | **Benford's Law** | Fabricated or manipulated amounts. Round-number invoicing; contracts priced just under an approval ceiling |
 | **Peer-relative outliers** | Payments far outside the normal range *for their own vendor, category or department* |
-| **Vendor concentration** | Suppliers capturing a category — bid rigging, tailored tenders, undisclosed relationships. Includes market-level HHI |
+| **Vendor concentration** | Suppliers capturing a category вЂ” bid rigging, tailored tenders, undisclosed relationships. Includes market-level HHI |
 
 Signals are merged into one ranked list. Independent methods agreeing on the
 same subject is treated as materially stronger evidence and surfaced as such.
@@ -55,7 +55,7 @@ same subject is treated as materially stronger evidence and surfaced as such.
 | **Upload** | Drag-and-drop CSV/Excel with schema feedback, or one-click demo data |
 | **Anomaly report** | Ranked findings, expandable to each contributing signal and its raw statistics, filterable by category, department and severity |
 | **Benford's Law** | Expected versus observed first-digit distribution, with the threshold that was actually applied and why |
-| **Vendor risk** | Per-scope Herfindahl–Hirschman Index and a sortable table of every supplier's share |
+| **Vendor risk** | Per-scope HerfindahlвЂ“Hirschman Index and a sortable table of every supplier's share |
 | **How this works** | The full methodology, rendered from the same file as the published docs |
 
 ---
@@ -92,21 +92,21 @@ dotnet test
 The engineering claim of this project is not that it detects anomalies. It is
 that it **does not cry wolf**, and that it can show its work.
 
-Three genuine statistical defects were found during the build — every one of
+Three genuine statistical defects were found during the build вЂ” every one of
 them by testing the detectors against *clean* data and asserting silence, not by
 testing that planted fraud was caught:
 
 1. **Raw-amount z-scores over-flag skewed spending.** Procurement amounts are
-   heavily right-skewed, so the top of any realistic distribution sits beyond 3σ
+   heavily right-skewed, so the top of any realistic distribution sits beyond 3Пѓ
    by construction. A clean 1,200-row ledger produced **55 false positives**.
    Comparing on a log scale produces **zero**, while still catching genuine
    order-of-magnitude outliers.
 
 2. **Benford's published MAD bands are invalid at small sample sizes.** At
-   n = 100, sampling noise alone yields MAD ≈ 0.024 — above the 0.015
-   non-conformity threshold — so a naive per-vendor test flags essentially every
+   n = 100, sampling noise alone yields MAD в‰€ 0.024 вЂ” above the 0.015
+   non-conformity threshold вЂ” so a naive per-vendor test flags essentially every
    vendor. Deviations are now judged against a sample-size-aware noise floor of
-   0.2348/√n.
+   0.2348/в€љn.
 
 3. **Vendor concentration conflated one big contract with market capture.** A
    single enormous payment gives its vendor a large share of scope spend by
@@ -119,7 +119,7 @@ Measured behaviour on the 1,710-row demo dataset:
 | | |
 |---|---|
 | Findings total | 10 |
-| Critical | 2 — both deliberately planted vendors |
+| Critical | 2 вЂ” both deliberately planted vendors |
 | Corroborated by 2+ independent methods | 1 |
 | Planted anomalies detected | 4 of 4 |
 | Actionable findings as a share of the ledger | 0.6% |
@@ -137,17 +137,17 @@ Full reasoning, thresholds and limitations:
 Clean Architecture with CQRS. The dependency arrow points inward:
 
 ```
-BudgetGuard.Domain          detection algorithms — ZERO framework dependencies
-       ▲
+BudgetGuard.Domain          detection algorithms вЂ” ZERO framework dependencies
+       в–І
 BudgetGuard.Application     MediatR commands/queries, DTOs, FluentValidation
-       ▲
+       в–І
 BudgetGuard.Infrastructure  EF Core / SQLite, CSV + Excel parsing
-       ▲
-BudgetGuard.Api  ·  BudgetGuard.Web    two surfaces over one engine
+       в–І
+BudgetGuard.Api  В·  BudgetGuard.Web    two surfaces over one engine
 ```
 
 The domain project has **no package references at all**. That is not
-decoration — it is why 112 detection tests run in about 60 milliseconds with no
+decoration вЂ” it is why 112 detection tests run in about 60 milliseconds with no
 host, no database and no mocking framework, and therefore why it was practical
 to write the clean-data regression tests that found all three defects above.
 
@@ -175,7 +175,7 @@ CSV or Excel. Required columns: `TransactionDate`, `Amount`, `VendorName`,
 `Description`.
 
 Common alternative header names (`Supplier`, `Ministry`, `ContractValue`,
-`ProcuringEntity`, …) are recognised automatically, and both `1.234,56` and
+`ProcuringEntity`, вЂ¦) are recognised automatically, and both `1.234,56` and
 `1,234.56` parse correctly. Full details in
 [DATA_MODEL.md](docs/DATA_MODEL.md).
 
@@ -203,7 +203,7 @@ such.** No real supplier or agency is described anywhere in this repository.
 BudgetGuard AI produces **screening leads for human review**. Nothing it outputs
 is a determination of wrongdoing. Legitimate concentration, legitimate large
 contracts and legitimately non-Benford data all exist, and the known
-false-positive risks are documented rather than hidden — see the limitations
+false-positive risks are documented rather than hidden вЂ” see the limitations
 section of
 [DETECTION_METHODOLOGY.md](docs/DETECTION_METHODOLOGY.md#known-limitations-and-false-positive-risks).
 
@@ -213,4 +213,4 @@ needs a company registry integration.
 
 ## Licence
 
-MIT — see [LICENSE](LICENSE).
+MIT вЂ” see [LICENSE](LICENSE).
