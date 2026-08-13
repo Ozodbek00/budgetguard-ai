@@ -19,6 +19,13 @@
 # Caddyfile and reload the proxy. Use the top-level docker-compose.yml instead
 # if this app is the only thing on the box.
 
+# Explicit project name. Compose otherwise derives it from the directory holding
+# this file — "deploy" — which is a name other stacks on a shared host are very
+# likely to use too. When two projects collide, each sees the other's containers
+# as orphans, and a routine `docker compose down --remove-orphans` in one would
+# delete the other application. Naming the project prevents that.
+name: budgetguard
+
 services:
   web:
     build:
