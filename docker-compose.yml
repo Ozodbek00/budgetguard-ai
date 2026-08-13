@@ -3,6 +3,16 @@
 #     Blazor UI  -> http://localhost:8080
 #     Swagger API -> http://localhost:8081/swagger
 #
+# There are deliberately no container healthchecks here. The mcr.microsoft.com
+# dotnet/aspnet runtime image ships neither curl nor wget, so the usual
+# `wget -qO- /health` probe fails and reports a perfectly healthy service as
+# unhealthy — which is worse than no probe. Installing curl purely to satisfy a
+# local convenience check is not worth the image size or the attack surface.
+# Both `/health` endpoints work and are probed externally where it matters:
+# render.yaml uses `healthCheckPath`, fly.toml uses an [[http_service.checks]]
+# block, and CI curls the endpoint from the runner. Check manually with:
+#   curl http://localhost:8080/health
+#
 # Each service gets its OWN database volume. That is deliberate: SQLite
 # serialises writers with file locks, and pointing two independently scaled
 # containers at one file invites lock contention for no benefit here. The two
@@ -24,12 +34,6 @@ services:
       ConnectionStrings__BudgetGuard: "Data Source=/app/data/budgetguard.db"
     volumes:
       - web-data:/app/data
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
     restart: unless-stopped
 
   api:
@@ -45,12 +49,6 @@ services:
       ConnectionStrings__BudgetGuard: "Data Source=/app/data/budgetguard.db"
     volumes:
       - api-data:/app/data
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
     restart: unless-stopped
 
 volumes:

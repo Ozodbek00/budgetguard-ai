@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test --no-build --configuration Release --verbosity normal
+
+      # Scoring the engine against ground truth. The generator records the
+      # anomalies it plants; this prints the ranked report so a threshold change
+      # shows up as a visible diff in the build log rather than only as a
+      # pass/fail. Detection regressions are otherwise silent.
+      - name: Detection diagnostics
+        run: dotnet run --project tools/BudgetGuard.DataGenerator --configuration Release -- diagnose
+
+  docker:
+    name: Container build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build web image
+        run: docker build -f src/BudgetGuard.Web/Dockerfile -t budgetguard-web:ci .
+
+      - name: Build api image
+        run: docker build -f src/BudgetGuard.Api/Dockerfile -t budgetguard-api:ci .
+
+      # Proves the published artefact actually starts and binds the injected
+      # port, which is the thing that breaks a hosting deploy.
+      - name: Smoke test the web container
+        run: |
+          docker run -d --name bg -e PORT=10000 -p 10000:10000 budgetguard-web:ci
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:10000/health > /dev/null; then
+              echo "Healthy after ${i}s"
+              curl -s http://localhost:10000/health
+              docker rm -f bg
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Container did not become healthy:"
+          docker logs bg
+          exit 1
