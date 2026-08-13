@@ -36,3 +36,20 @@ budgetguard-ai.proread.uz {
 		}
 	}
 }
+
+# The API and its Swagger UI, on a separate hostname rather than a path under
+# the app. A path prefix would be tidier to link but wrong here: the two
+# containers keep separate databases, so /api under the app's hostname would
+# answer with a different dataset than the page above it — the kind of
+# inconsistency that makes a reviewer distrust everything else on the screen.
+budgetguard-api.proread.uz {
+	reverse_proxy budgetguard-api:8080
+
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+}

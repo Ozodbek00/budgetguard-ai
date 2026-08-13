@@ -15,11 +15,11 @@
     </div>
 </div>
 
-<div class="bg-banner bg-banner-ok">
-    This page renders <code>docs/DETECTION_METHODOLOGY.md</code> from the repository
-    directly. The published methodology and the in-product explanation are the same
-    file, so they cannot drift apart.
-</div>
+@* No "this page renders a markdown file" note here on purpose.
+
+   How the content is sourced is a fact about the build, interesting to a
+   contributor and irrelevant to the auditor reading the page. It is documented
+   in docs/CODING_STANDARDS.md and README.md, where the audience is right. *@
 
 <section class="bg-card">
     @if (_html is null)

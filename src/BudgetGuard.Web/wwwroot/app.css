@@ -320,7 +320,9 @@ html, body {
 
 /* ---------- prose (How this works) ---------- */
 
-.bg-prose { max-width: 74ch; }
+/* Centred rather than left-aligned: the measure is capped for readability, and
+   pinning it left inside a full-width card left a large empty gutter. */
+.bg-prose { max-width: 74ch; margin: 0 auto; }
 .bg-prose h2 { margin: 1.8rem 0 0.5rem; font-size: 1.15rem; }
 .bg-prose h3 { margin: 1.2rem 0 0.35rem; font-size: 0.98rem; }
 .bg-prose p, .bg-prose li { color: #2c3a4a; }

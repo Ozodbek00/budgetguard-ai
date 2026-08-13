@@ -64,6 +64,50 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Swagger surface, served on its own hostname. Same engine, same MediatR
+  # handlers, different binding — see docs/adr/0003-blazor-server-over-spa.md.
+  api:
+    build:
+      context: ..
+      dockerfile: src/BudgetGuard.Api/Dockerfile
+    image: budgetguard-api:prod
+    container_name: budgetguard-api
+    restart: unless-stopped
+
+    expose:
+      - "8080"
+
+    environment:
+      PORT: "8080"
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__BudgetGuard: "Data Source=/app/data/budgetguard.db"
+      Demo__SeedOnStartup: "true"
+
+    volumes:
+      # A SEPARATE volume from the web app, deliberately.
+      #
+      # Sharing one SQLite file between two containers would make the two
+      # surfaces show one dataset, which is superficially tidier. It would also
+      # put two independent processes on one file: both run EF migrations and
+      # the demo seeder at boot, so a simultaneous restart races on schema
+      # creation and can seed the demo dataset twice. Trading a guaranteed
+      # failure mode for a cosmetic gain is a bad deal on a demo that has to
+      # survive being clicked on by judges.
+      #
+      # Both containers generate the same deterministic demo dataset, so the two
+      # surfaces agree out of the box. They diverge only if someone uploads a
+      # file, and uploads are per-surface.
+      - budgetguard-api-data:/app/data
+
+    networks:
+      - edge
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 networks:
   edge:
     name: ${EDGE_NETWORK:-profin_default}
@@ -71,3 +115,4 @@ networks:
 
 volumes:
   budgetguard-data:
+  budgetguard-api-data:
