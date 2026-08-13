@@ -296,9 +296,9 @@ public sealed class ZScoreOutlierDetectorTests
         var transactions = LargeCleanGroup();
         transactions.Add(TestData.Transaction(200m, reference: "PLANTED"));
 
-        var finding = Assert.Single(new ZScoreOutlierDetector(Settings())
-            .Detect(transactions)
-            .Where(f => f.ExternalReference == "PLANTED"));
+        var finding = Assert.Single(
+            new ZScoreOutlierDetector(Settings()).Detect(transactions),
+            f => f.ExternalReference == "PLANTED");
 
         Assert.Equal(1d, finding.NormalisedScore);
     }
