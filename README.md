@@ -6,10 +6,16 @@ every flag comes with the arithmetic behind it, in a sentence an auditor can
 verify by hand.
 
 ### ▶ Live demo: **<https://budgetguard-ai.proread.uz>**
+### ▶ API and Swagger: **<https://budgetguard-api.proread.uz>**
 
 Loaded with a synthetic dataset that has four fraud patterns planted in it.
 Start on the [anomaly report](https://budgetguard-ai.proread.uz/report), then
 see [why each flag was raised](https://budgetguard-ai.proread.uz/how-it-works).
+
+The two hostnames are the same engine behind different bindings — the Blazor
+app dispatches the same MediatR handlers in-process that the API exposes over
+HTTP. They run as separate containers with separate databases, so an upload to
+one is not visible in the other.
 
 [![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4)](https://dotnet.microsoft.com/)
 [![Tests](https://img.shields.io/badge/tests-184%20passing-2ea44f)](tests/)

@@ -165,7 +165,13 @@ Caddy requests the certificate on the first HTTPS request to the new hostname.
 
 ```bash
 curl -s https://budgetguard-ai.proread.uz/health
+curl -s https://budgetguard-api.proread.uz/health
 ```
+
+The stack runs two containers: the Blazor app on one hostname and the API with
+its Swagger UI on another. They keep separate databases — see the comment on the
+`api` service in the compose file for why sharing one SQLite volume between them
+would trade a cosmetic gain for a startup race.
 
 #### Redeploying
 
