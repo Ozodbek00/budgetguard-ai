@@ -12,6 +12,25 @@
 #   docker exec profin-caddy-1 caddy reload  --config /etc/caddy/Caddyfile
 
 budgetguard-ai.proread.uz {
+	# Optional access gate for pre-release sharing. Generate the hash with:
+	#   docker exec <caddy-container> caddy hash-password --plaintext '<password>'
+	# and paste the RESULT here. Never commit the plaintext, and note the hash
+	# below is a placeholder — replace it before enabling.
+	#
+	# /health is deliberately left open so uptime checks and container platforms
+	# are not tripped by a 401.
+	#
+	# This works with Blazor Server: after the browser satisfies the initial
+	# challenge it replays the credentials on the /_blazor WebSocket handshake,
+	# so the circuit establishes normally. (Verified — but note that testing
+	# this by putting credentials in the URL as https://user:pass@host will
+	# appear to fail, because fetch() refuses to construct requests from a
+	# credentialed URL. That is a artefact of the test, not of the gate.)
+	@needs_auth not path /health
+	basic_auth @needs_auth {
+		judge $2a$14$REPLACE.WITH.YOUR.OWN.BCRYPT.HASH.FROM.CADDY.HASH.PASSWORD
+	}
+
 	# Blazor Server keeps a WebSocket open per connected client. Caddy upgrades
 	# these automatically, but the timeouts matter: an auditor can sit reading a
 	# long anomaly report without sending a request, and a short idle timeout

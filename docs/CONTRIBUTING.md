@@ -185,6 +185,36 @@ The database lives on the named volume `budgetguard_budgetguard-data` and
 survives rebuilds — uploaded datasets are not lost on redeploy. To start clean,
 `docker compose -f deploy/docker-compose.shared-proxy.yml down -v`.
 
+#### Gating the deployment while it is unreleased
+
+To put the instance behind HTTP basic auth — useful while sharing a link before
+launch — generate a hash and add it to both site blocks:
+
+```bash
+docker exec profin-caddy-1 caddy hash-password --plaintext '<your-password>'
+```
+
+```caddyfile
+@needs_auth not path /health
+basic_auth @needs_auth {
+	judge <paste-the-bcrypt-hash-here>
+}
+```
+
+Only the bcrypt hash goes in the Caddyfile; the plaintext is never stored on
+the server. Leave `/health` outside the matcher so uptime checks still work.
+
+This is compatible with Blazor Server. After the browser satisfies the initial
+challenge it replays the credentials on the `/_blazor` WebSocket handshake and
+the circuit establishes normally.
+
+One trap when verifying: testing with credentials embedded in the URL
+(`https://user:pass@host/`) **will appear to fail**, because `fetch()` refuses
+to construct a request from a credentialed URL and SignalR's negotiate call
+therefore 401s. Authenticate through the browser's own dialog — or navigate to
+the credentialed URL once and then to a clean one — before concluding anything
+is broken.
+
 #### Two things that will bite you on a shared host
 
 - **Pin the compose project name.** Compose derives it from the directory
