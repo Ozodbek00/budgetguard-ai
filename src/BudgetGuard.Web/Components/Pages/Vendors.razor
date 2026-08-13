@@ -1,0 +1,257 @@
+@page "/vendors"
+@inject ISender Sender
+
+<PageTitle>BudgetGuard AI — Vendor risk</PageTitle>
+
+@if (_error is not null)
+{
+    <div class="bg-banner bg-banner-error">
+        <strong>No analysis available.</strong> @_error <a href="">Load a dataset first.</a>
+    </div>
+}
+else if (_risk is null)
+{
+    <p class="bg-muted">Computing supplier concentration…</p>
+}
+else
+{
+    <SyntheticDataBanner IsSyntheticDemo="_risk.IsSyntheticDemo" />
+
+    <div class="bg-page-head">
+        <div>
+            <h1>Vendor risk</h1>
+            <p class="bg-muted">
+                @_risk.DatasetName — supplier share of spend within each category and department
+            </p>
+        </div>
+    </div>
+
+    <section class="bg-card">
+        <h2>Market concentration by scope</h2>
+        <p class="bg-muted bg-small">
+            The Herfindahl-Hirschman Index is the sum of squared percentage market shares, from
+            near 0 (many equal suppliers) to 10,000 (a single supplier). Competition authorities
+            treat above 2,500 as highly concentrated. A scope scoring badly here is worth
+            reviewing as a procurement process even when no individual vendor crosses a threshold.
+        </p>
+
+        <div class="bg-table-wrap">
+            <table class="bg-table">
+                <thead>
+                    <tr>
+                        <th>Scope</th>
+                        <th>Name</th>
+                        <th class="bg-num">Vendors</th>
+                        <th class="bg-num">Contracts</th>
+                        <th class="bg-num">Total spend</th>
+                        <th class="bg-num">HHI</th>
+                        <th>Largest supplier</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var scope in _risk.Scopes)
+                    {
+                        <tr>
+                            <td class="bg-muted bg-small">@scope.ScopeType</td>
+                            <td><strong>@scope.ScopeKey</strong></td>
+                            <td class="bg-num">@scope.VendorCount</td>
+                            <td class="bg-num">@scope.TransactionCount.ToString("N0")</td>
+                            <td class="bg-num">@scope.TotalSpend.ToString("N0")</td>
+                            <td class="bg-num">
+                                <strong class="@(scope.IsHighlyConcentrated ? "bg-deviation-high" : "")">
+                                    @scope.HerfindahlHirschmanIndex.ToString("N0")
+                                </strong>
+                                <div class="bg-muted bg-small">even split @scope.EvenSplitHhi.ToString("N0")</div>
+                            </td>
+                            <td>
+                                @scope.TopVendorName
+                                <div class="bg-muted bg-small">@scope.TopVendorShare.ToString("P1") of spend</div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="bg-card">
+        <div class="bg-filters">
+            <label>
+                Scope type
+                <select @bind="_scopeType" @bind:after="ReloadAsync">
+                    <option value="">All scopes</option>
+                    @foreach (var scopeType in _allScopeTypes)
+                    {
+                        <option value="@scopeType">@scopeType</option>
+                    }
+                </select>
+            </label>
+
+            <label>
+                Show
+                <select @bind="_flaggedOnly" @bind:after="ReloadAsync">
+                    <option value="false">All vendors</option>
+                    <option value="true">Flagged vendors only</option>
+                </select>
+            </label>
+
+            <label>
+                Sort by
+                <select @bind="_sort">
+                    <option value="share">Share of scope spend</option>
+                    <option value="multiple">Multiple of expected share</option>
+                    <option value="contracts">Contract count</option>
+                    <option value="spend">Absolute spend</option>
+                </select>
+            </label>
+
+            <span class="bg-muted bg-filter-note">
+                Every vendor is listed, not only flagged ones: a share is only interpretable
+                against the field it sits in, so the whole distribution has to be visible to
+                judge any one flag.
+            </span>
+        </div>
+
+        <div class="bg-table-wrap">
+            <table class="bg-table">
+                <thead>
+                    <tr>
+                        <th>Vendor</th>
+                        <th>Scope</th>
+                        <th class="bg-num">Spend</th>
+                        <th>Share of scope</th>
+                        <th class="bg-num">vs expected</th>
+                        <th class="bg-num">Contracts</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var vendor in SortedVendors())
+                    {
+                        <tr class="@(vendor.IsFlagged ? "bg-row-flagged" : "")">
+                            <td><strong>@vendor.VendorName</strong></td>
+                            <td class="bg-muted bg-small">
+                                @vendor.ScopeKey
+                                <div>@vendor.ScopeType</div>
+                            </td>
+                            <td class="bg-num">@vendor.Spend.ToString("N0")</td>
+                            <td>
+                                <div class="bg-share">
+                                    <div class="bg-bar-track">
+                                        <div class="bg-bar-fill @(vendor.IsFlagged ? "over" : "")"
+                                             style="width:@ShareWidth(vendor.SpendShare)"></div>
+                                    </div>
+                                    <span class="bg-share-value">@vendor.SpendShare.ToString("P1")</span>
+                                </div>
+                                <div class="bg-muted bg-small">
+                                    even split would be @vendor.ExpectedShare.ToString("P1")
+                                </div>
+                            </td>
+                            <td class="bg-num">
+                                <strong class="@(vendor.ExcessMultiple >= 3 ? "bg-deviation-high" : "")">
+                                    @vendor.ExcessMultiple.ToString("F1")x
+                                </strong>
+                            </td>
+                            <td class="bg-num">
+                                @vendor.ContractCount.ToString("N0")
+                                <div class="bg-muted bg-small">
+                                    exp. @vendor.ExpectedContractCount.ToString("N1")
+                                    @if (vendor.ContractCountZScore is { } z)
+                                    {
+                                        <text> (@z.ToString("F1")σ)</text>
+                                    }
+                                </div>
+                            </td>
+                            <td>
+                                @if (vendor.IsFlagged)
+                                {
+                                    <span class="bg-pill bg-sev-high">Flagged</span>
+                                    <details class="bg-details">
+                                        <summary>Why</summary>
+                                        <p class="bg-small">@vendor.Explanation</p>
+                                    </details>
+                                }
+                                else
+                                {
+                                    <span class="bg-muted bg-small">Within thresholds</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (_risk.Vendors.Count == 0)
+        {
+            <p class="bg-muted">
+                No scope in this dataset had enough vendors and contracts to support a
+                concentration judgement.
+            </p>
+        }
+    </section>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "datasetId")]
+    private Guid? DatasetId { get; set; }
+
+    private VendorRiskDto? _risk;
+    private string? _error;
+
+    private string _scopeType = string.Empty;
+    private string _flaggedOnly = "false";
+    private string _sort = "share";
+    private IReadOnlyList<string> _allScopeTypes = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAsync();
+
+        if (_risk is not null)
+        {
+            _allScopeTypes = _risk.ScopeTypes;
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        try
+        {
+            _error = null;
+
+            _risk = await Sender.Send(new GetVendorRiskQuery(
+                DatasetId,
+                string.IsNullOrEmpty(_scopeType) ? null : _scopeType,
+                bool.Parse(_flaggedOnly)));
+        }
+        catch (BudgetGuard.Application.Common.Exceptions.NotFoundException)
+        {
+            _error = "No dataset has been uploaded yet.";
+        }
+    }
+
+    /// <summary>
+    /// Sorting happens here rather than in the query: it is a presentation
+    /// concern over an already-loaded page of results, and round-tripping the
+    /// whole analysis to reorder a table would be wasteful.
+    /// </summary>
+    private IEnumerable<VendorRiskRowDto> SortedVendors()
+    {
+        if (_risk is null)
+        {
+            return [];
+        }
+
+        return _sort switch
+        {
+            "multiple" => _risk.Vendors.OrderByDescending(v => v.ExcessMultiple),
+            "contracts" => _risk.Vendors.OrderByDescending(v => v.ContractCount),
+            "spend" => _risk.Vendors.OrderByDescending(v => v.Spend),
+            _ => _risk.Vendors.OrderByDescending(v => v.IsFlagged).ThenByDescending(v => v.SpendShare)
+        };
+    }
+
+    private static string ShareWidth(double share) =>
+        (Math.Clamp(share, 0d, 1d) * 100d).ToString("0.#", CultureInfo.InvariantCulture) + "%";
+}

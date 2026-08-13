@@ -22,6 +22,10 @@ RUN dotnet restore src/BudgetGuard.Web/BudgetGuard.Web.csproj
 FROM restore AS publish
 COPY src/ src/
 
+# The "How this works" page renders this file at runtime; the Web project
+# links it in as content, so it must be present in the build context.
+COPY docs/DETECTION_METHODOLOGY.md docs/DETECTION_METHODOLOGY.md
+
 RUN dotnet publish src/BudgetGuard.Web/BudgetGuard.Web.csproj \
     -c Release \
     -o /app/publish \

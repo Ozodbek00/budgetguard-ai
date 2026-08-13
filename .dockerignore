@@ -15,7 +15,9 @@
 .idea/
 .claude/
 
-docs/
+# NOTE: docs/ is deliberately NOT ignored — BudgetGuard.Web compiles
+# docs/DETECTION_METHODOLOGY.md into the image and renders it on the
+# "How this works" page.
 tests/
 **/TestResults/
 

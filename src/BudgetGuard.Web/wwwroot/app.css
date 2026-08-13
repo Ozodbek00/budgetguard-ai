@@ -276,6 +276,48 @@ html, body {
 .bg-bar-fill { height: 100%; background: var(--accent); }
 .bg-bar-fill.over { background: var(--critical); }
 
+/* ---------- charts ---------- */
+
+.bg-chart svg { width: 100%; height: auto; display: block; }
+
+.bg-chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.1rem;
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+}
+
+.bg-chart-legend .swatch {
+    display: inline-block;
+    width: 0.8rem; height: 0.8rem;
+    border-radius: 3px;
+    margin-right: 0.3rem;
+    vertical-align: -1px;
+}
+
+.bg-verdict {
+    padding: 0.8rem 1rem;
+    border-radius: 8px;
+    border: 1px solid;
+    margin-bottom: 1.1rem;
+    font-size: 0.9rem;
+}
+
+.bg-verdict-ok { background: var(--ok-bg); border-color: #bfdccb; color: #14502f; }
+.bg-verdict-bad { background: var(--critical-bg); border-color: #e6bcbc; color: #7d1717; }
+
+.bg-deviation-high { color: var(--critical); font-weight: 700; }
+
+/* ---------- vendor risk ---------- */
+
+.bg-share { display: flex; align-items: center; gap: 0.5rem; min-width: 170px; }
+.bg-share-value { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.85rem; }
+.bg-share .bg-bar-track { flex: 1; }
+.bg-row-flagged { background: #fdf6f6; }
+.bg-row-flagged:hover { background: #fbeeee; }
+
 /* ---------- prose (How this works) ---------- */
 
 .bg-prose { max-width: 74ch; }
@@ -283,6 +325,13 @@ html, body {
 .bg-prose h3 { margin: 1.2rem 0 0.35rem; font-size: 0.98rem; }
 .bg-prose p, .bg-prose li { color: #2c3a4a; }
 .bg-prose code { background: var(--canvas); padding: 0.1rem 0.3rem; border-radius: 4px; font-size: 0.88em; }
+.bg-prose pre { background: var(--canvas); padding: 0.8rem 1rem; border-radius: 7px; overflow-x: auto; border: 1px solid var(--line); }
+.bg-prose pre code { background: none; padding: 0; }
+.bg-prose table { width: 100%; border-collapse: collapse; font-size: 0.87rem; margin: 0.8rem 0; display: block; overflow-x: auto; }
+.bg-prose th, .bg-prose td { padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--line); text-align: left; }
+.bg-prose th { background: var(--canvas); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--ink-soft); }
+.bg-prose blockquote { margin: 0.8rem 0; padding-left: 1rem; border-left: 3px solid var(--line); color: var(--ink-soft); }
+.bg-prose hr { border: none; border-top: 1px solid var(--line); margin: 1.8rem 0; }
 
 /* ---------- error UI ---------- */
 

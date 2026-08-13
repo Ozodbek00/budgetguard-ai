@@ -5,7 +5,21 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Markdig" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\BudgetGuard.Infrastructure\BudgetGuard.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The "How this works" page renders this file at runtime. Shipping the
+         published methodology into the app rather than restating it in markup
+         is what keeps the two from drifting apart as thresholds change. -->
+    <Content Include="..\..\docs\DETECTION_METHODOLOGY.md"
+             Link="Content\DETECTION_METHODOLOGY.md"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

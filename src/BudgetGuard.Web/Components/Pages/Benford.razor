@@ -1,0 +1,169 @@
+@page "/benford"
+@inject ISender Sender
+
+<PageTitle>BudgetGuard AI — Benford's Law</PageTitle>
+
+@if (_error is not null)
+{
+    <div class="bg-banner bg-banner-error">
+        <strong>No analysis available.</strong> @_error <a href="">Load a dataset first.</a>
+    </div>
+}
+else if (_distribution is null)
+{
+    <p class="bg-muted">Computing digit distribution…</p>
+}
+else
+{
+    <SyntheticDataBanner IsSyntheticDemo="_distribution.IsSyntheticDemo" />
+
+    <div class="bg-page-head">
+        <div>
+            <h1>Benford's Law — first-digit distribution</h1>
+            <p class="bg-muted">@_distribution.PopulationLabel — @_distribution.SampleSize.ToString("N0") amounts tested</p>
+        </div>
+    </div>
+
+    <div class="bg-verdict @(_distribution.IsAnomalous ? "bg-verdict-bad" : "bg-verdict-ok")">
+        <strong>@(_distribution.IsAnomalous ? "Does not conform" : "Conforms")</strong>
+        — @_distribution.Explanation
+    </div>
+
+    <section class="bg-card">
+        <BenfordChart Digits="_distribution.Digits" SampleSize="_distribution.SampleSize" />
+    </section>
+
+    <div class="bg-grid-2">
+        <section class="bg-card">
+            <h2>Test statistics</h2>
+            <table class="bg-table">
+                <tbody>
+                    <tr>
+                        <td>Mean Absolute Deviation</td>
+                        <td class="bg-num"><strong>@_distribution.MeanAbsoluteDeviation.ToString("F4")</strong></td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Threshold applied
+                            <div class="bg-muted bg-small">
+                                @if (_distribution.EffectiveMadThreshold > _distribution.FixedMadThreshold)
+                                {
+                                    <text>
+                                        Raised above the published @_distribution.FixedMadThreshold.ToString("F3")
+                                        band because at this sample size chance alone produces a deviation of
+                                        roughly @((_distribution.EffectiveMadThreshold / 2d).ToString("F4")).
+                                    </text>
+                                }
+                                else
+                                {
+                                    <text>Nigrini's published non-conformity band for first digits.</text>
+                                }
+                            </div>
+                        </td>
+                        <td class="bg-num">@_distribution.EffectiveMadThreshold.ToString("F4")</td>
+                    </tr>
+                    <tr>
+                        <td>Conformity band</td>
+                        <td class="bg-num">@_distribution.Conformity</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Chi-square (8 df)
+                            <div class="bg-muted bg-small">
+                                Reported for completeness. Not used as the verdict: chi-square grows with
+                                sample size and rejects conformity on large datasets for deviations too
+                                small to matter.
+                            </div>
+                        </td>
+                        <td class="bg-num">
+                            @_distribution.ChiSquare.ToString("F1")
+                            <div class="bg-muted bg-small">crit. @_distribution.ChiSquareCriticalValue.ToString("F3")</div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Amounts excluded (zero or negative)</td>
+                        <td class="bg-num">@_distribution.ExcludedCount.ToString("N0")</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="bg-card">
+            <h2>Per-digit detail</h2>
+            <div class="bg-table-wrap">
+                <table class="bg-table">
+                    <thead>
+                        <tr>
+                            <th>Digit</th>
+                            <th class="bg-num">Observed</th>
+                            <th class="bg-num">Expected</th>
+                            <th class="bg-num">Deviation</th>
+                            <th class="bg-num">Excess count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var digit in _distribution.Digits)
+                        {
+                            <tr>
+                                <td><strong>@digit.Digit</strong></td>
+                                <td class="bg-num">
+                                    @digit.ObservedProportion.ToString("P1")
+                                    <div class="bg-muted bg-small">@digit.ObservedCount.ToString("N0")</div>
+                                </td>
+                                <td class="bg-num">
+                                    @digit.ExpectedProportion.ToString("P1")
+                                    <div class="bg-muted bg-small">@digit.ExpectedCount.ToString("N0")</div>
+                                </td>
+                                <td class="bg-num @(digit.DeviationPercentagePoints > 3 ? "bg-deviation-high" : "")">
+                                    @digit.DeviationPercentagePoints.ToString("+0.0;-0.0;0.0") pts
+                                </td>
+                                <td class="bg-num">@digit.ExcessCount.ToString("+#,##0;-#,##0;0")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <section class="bg-card">
+        <h2>Reading this chart</h2>
+        <p class="bg-muted">
+            In data that spans several orders of magnitude and arises from multiplicative
+            processes — which procurement spending does — leading digits are not uniform.
+            About 30.1% of natural amounts begin with 1 and only 4.6% begin with 9, following
+            log<sub>10</sub>(1 + 1/d). People inventing numbers do not reproduce that curve:
+            fabricated invoices cluster on round figures and on digits just below approval
+            ceilings, so a 50,000,000 sign-off limit produces a glut of amounts starting with 4.
+            A failure here does not identify a guilty transaction — it says this population was
+            not generated by the process that generates honest spending, which is the cue to
+            pull the ledger.
+        </p>
+        <p class="bg-muted">
+            <a href="how-it-works">Full methodology, including limitations and false-positive risks →</a>
+        </p>
+    </section>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "datasetId")]
+    private Guid? DatasetId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "vendor")]
+    private string? Vendor { get; set; }
+
+    private BenfordDistributionDto? _distribution;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _distribution = await Sender.Send(new GetBenfordDistributionQuery(DatasetId, Vendor));
+        }
+        catch (BudgetGuard.Application.Common.Exceptions.NotFoundException)
+        {
+            _error = "No dataset has been uploaded yet.";
+        }
+    }
+}

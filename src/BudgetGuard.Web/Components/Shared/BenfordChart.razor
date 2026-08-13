@@ -1,0 +1,149 @@
+@* Expected versus observed first-digit distribution.
+
+   Drawn as inline SVG rather than through a charting library. The chart has
+   exactly one job — put two series of nine bars side by side — and doing it
+   directly avoids a CDN dependency that would break under a restrictive
+   content-security policy, and avoids JS interop, which has to be deferred
+   past prerendering and would leave the chart blank on first paint. It also
+   means the chart is present in the server-rendered HTML, so it survives being
+   printed or saved as part of an audit record.
+
+   SVG <text> elements are emitted via MarkupString: Razor reserves the bare
+   <text> tag as its own control construct, so an SVG text node written
+   literally here is a compile error. *@
+
+<div class="bg-chart">
+    <svg viewBox="0 0 @F(ChartWidth) @F(ChartHeight)" role="img"
+         aria-label="Observed versus expected first-digit distribution"
+         preserveAspectRatio="xMidYMid meet">
+
+        @* horizontal gridlines and y-axis labels *@
+        @foreach (var tick in Ticks())
+        {
+            var y = PlotTop + PlotHeight - (tick / MaxValue * PlotHeight);
+
+            <line x1="@F(PlotLeft)" y1="@F(y)" x2="@F(PlotLeft + PlotWidth)" y2="@F(y)"
+                  stroke="#e3e8ee" stroke-width="1" />
+
+            @(SvgText(PlotLeft - 8, y + 4, $"{tick:0.#}%", "end", 11, "#5a6a7d"))
+        }
+
+        @* bars *@
+        @for (var i = 0; i < Digits.Count; i++)
+        {
+            var digit = Digits[i];
+            var groupX = PlotLeft + i * GroupWidth;
+            var expectedPct = digit.ExpectedProportion * 100d;
+            var observedPct = digit.ObservedProportion * 100d;
+
+            var expectedHeight = expectedPct / MaxValue * PlotHeight;
+            var observedHeight = observedPct / MaxValue * PlotHeight;
+
+            const double barGap = 6d;
+            var barWidth = (GroupWidth - GroupPadding * 2 - barGap) / 2d;
+            var expectedX = groupX + GroupPadding;
+            var observedX = expectedX + barWidth + barGap;
+
+            <rect x="@F(expectedX)" y="@F(PlotTop + PlotHeight - expectedHeight)"
+                  width="@F(barWidth)" height="@F(expectedHeight)" fill="#c8d3df" rx="2">
+                <title>
+                    Digit @digit.Digit — expected @expectedPct.ToString("0.0")% (@digit.ExpectedCount.ToString("N0") of @SampleSize.ToString("N0"))
+                </title>
+            </rect>
+
+            <rect x="@F(observedX)" y="@F(PlotTop + PlotHeight - observedHeight)"
+                  width="@F(barWidth)" height="@F(observedHeight)" fill="@BarColour(digit)" rx="2">
+                <title>
+                    Digit @digit.Digit — observed @observedPct.ToString("0.0")% (@digit.ObservedCount.ToString("N0") of @SampleSize.ToString("N0")), deviation @digit.DeviationPercentagePoints.ToString("+0.0;-0.0;0.0") points
+                </title>
+            </rect>
+
+            @(SvgText(groupX + GroupWidth / 2d, PlotTop + PlotHeight + 18,
+                      digit.Digit.ToString(), "middle", 13, "#14202e", bold: true))
+        }
+
+        @* axis *@
+        <line x1="@F(PlotLeft)" y1="@F(PlotTop + PlotHeight)"
+              x2="@F(PlotLeft + PlotWidth)" y2="@F(PlotTop + PlotHeight)"
+              stroke="#9fb0c1" stroke-width="1.5" />
+
+        @(SvgText(PlotLeft + PlotWidth / 2d, PlotTop + PlotHeight + 40,
+                  "Leading digit", "middle", 12, "#5a6a7d"))
+    </svg>
+
+    <div class="bg-chart-legend">
+        <span><i class="swatch" style="background:#c8d3df"></i> Expected under Benford's Law</span>
+        <span><i class="swatch" style="background:#1c5d99"></i> Observed (within expectation)</span>
+        <span><i class="swatch" style="background:#a01d1d"></i> Observed (materially over-represented)</span>
+    </div>
+</div>
+
+@code {
+    /// <summary>Per-digit observed and expected frequencies, digits 1-9.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<BenfordDigitDto> Digits { get; set; } = [];
+
+    /// <summary>Sample size, shown in tooltips.</summary>
+    [Parameter]
+    public int SampleSize { get; set; }
+
+    private const double ChartWidth = 760;
+    private const double ChartHeight = 320;
+    private const double PlotLeft = 46;
+    private const double PlotTop = 14;
+    private const double PlotWidth = ChartWidth - PlotLeft - 12;
+    private const double PlotHeight = ChartHeight - PlotTop - 56;
+    private const double GroupPadding = 8;
+
+    private double GroupWidth => Digits.Count == 0 ? PlotWidth : PlotWidth / Digits.Count;
+
+    /// <summary>
+    /// Y-axis maximum, rounded up to a clean 5% step and never below the 30.1%
+    /// Benford predicts for digit 1, so the reference series is always fully
+    /// visible even on a dataset that under-represents it.
+    /// </summary>
+    private double MaxValue
+    {
+        get
+        {
+            var observedMax = Digits.Count == 0 ? 0d : Digits.Max(d => d.ObservedProportion * 100d);
+            return Math.Max(35d, Math.Ceiling(observedMax / 5d) * 5d);
+        }
+    }
+
+    private IEnumerable<double> Ticks()
+    {
+        for (var value = 0d; value <= MaxValue + 0.01; value += 5d)
+        {
+            yield return value;
+        }
+    }
+
+    /// <summary>
+    /// Reddens a bar only when a digit is over-represented by more than three
+    /// percentage points. Under-representation is the arithmetic consequence of
+    /// some other digit's excess, so colouring both ends would show one anomaly
+    /// twice.
+    /// </summary>
+    private static string BarColour(BenfordDigitDto digit) =>
+        digit.DeviationPercentagePoints > 3d ? "#a01d1d" : "#1c5d99";
+
+    private static MarkupString SvgText(
+        double x,
+        double y,
+        string content,
+        string anchor,
+        int fontSize,
+        string fill,
+        bool bold = false)
+    {
+        var weight = bold ? " font-weight=\"600\"" : string.Empty;
+        var encoded = System.Net.WebUtility.HtmlEncode(content);
+
+        return new MarkupString(
+            $"<text x=\"{F(x)}\" y=\"{F(y)}\" text-anchor=\"{anchor}\" " +
+            $"font-size=\"{fontSize}\" fill=\"{fill}\"{weight}>{encoded}</text>");
+    }
+
+    private static string F(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+}

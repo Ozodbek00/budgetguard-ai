@@ -1,0 +1,75 @@
+@page "/how-it-works"
+@using Markdig
+@inject IWebHostEnvironment Environment
+@inject ILogger<HowItWorks> Logger
+
+<PageTitle>BudgetGuard AI — How this works</PageTitle>
+
+<div class="bg-page-head">
+    <div>
+        <h1>How this works</h1>
+        <p class="bg-muted">
+            The statistical methods behind every flag, the thresholds chosen and why,
+            and where they can be wrong.
+        </p>
+    </div>
+</div>
+
+<div class="bg-banner bg-banner-ok">
+    This page renders <code>docs/DETECTION_METHODOLOGY.md</code> from the repository
+    directly. The published methodology and the in-product explanation are the same
+    file, so they cannot drift apart.
+</div>
+
+<section class="bg-card">
+    @if (_html is null)
+    {
+        <p class="bg-muted">Loading methodology…</p>
+    }
+    else
+    {
+        <article class="bg-prose">
+            @((MarkupString)_html)
+        </article>
+    }
+</section>
+
+@code {
+    private string? _html;
+
+    protected override void OnInitialized()
+    {
+        // The linked content file lands next to the assembly, which is the
+        // output directory under `dotnet run` and /app in the container.
+        // ContentRootPath points at the project folder in development, where
+        // the file does not exist, so it is only a fallback.
+        var candidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "Content", "DETECTION_METHODOLOGY.md"),
+            Path.Combine(Environment.ContentRootPath, "Content", "DETECTION_METHODOLOGY.md")
+        };
+
+        var path = candidates.FirstOrDefault(File.Exists);
+
+        if (path is null)
+        {
+            Logger.LogWarning(
+                "Methodology document not found. Looked in: {Paths}.", string.Join("; ", candidates));
+
+            _html = "<p>The methodology document could not be loaded. It is available in the " +
+                    "repository at <code>docs/DETECTION_METHODOLOGY.md</code>.</p>";
+            return;
+        }
+
+        var pipeline = new MarkdownPipelineBuilder()
+            .UseAdvancedExtensions()
+            .DisableHtml()
+            .Build();
+
+        // DisableHtml above matters: the rendered output is injected as a
+        // MarkupString, which bypasses Blazor's encoding. The source is a
+        // repository file rather than user input, but a document that becomes
+        // editable later should not silently become an XSS vector.
+        _html = Markdown.ToHtml(File.ReadAllText(path), pipeline);
+    }
+}
