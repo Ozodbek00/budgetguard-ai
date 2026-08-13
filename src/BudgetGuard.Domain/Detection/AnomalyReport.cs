@@ -11,14 +11,21 @@ namespace BudgetGuard.Domain.Detection;
 /// <param name="TransactionCount">Rows fed to the detectors.</param>
 /// <param name="Findings">Ranked findings, highest risk first.</param>
 /// <param name="DatasetBenford">Dataset-wide first-digit result, always present.</param>
-/// <param name="Scopes">Per-category and per-department competitiveness summaries.</param>
+/// <param name="Concentration">
+/// The full typed concentration result. Kept rather than reduced to signals so
+/// the vendor risk view can render exact shares and contract counts instead of
+/// parsing them back out of explanation text.
+/// </param>
 public sealed record AnomalyReport(
     string DatasetLabel,
     int TransactionCount,
     IReadOnlyList<AnomalyFinding> Findings,
     BenfordResult DatasetBenford,
-    IReadOnlyList<ScopeConcentrationSummary> Scopes)
+    VendorConcentrationResult Concentration)
 {
+    /// <summary>Per-category and per-department competitiveness summaries.</summary>
+    public IReadOnlyList<ScopeConcentrationSummary> Scopes => Concentration.Scopes;
+
     /// <summary>Findings in a given severity band.</summary>
     public int CountAt(Severity severity) => Findings.Count(f => f.Severity == severity);
 

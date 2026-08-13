@@ -81,7 +81,7 @@ public sealed class AnomalyAggregator : IAnomalyAggregator
             transactions.Count,
             findings,
             datasetBenford,
-            concentrationResult.Scopes);
+            concentrationResult);
     }
 
     private IEnumerable<AnomalySignal> DatasetBenfordSignals(BenfordResult result, string datasetLabel)
