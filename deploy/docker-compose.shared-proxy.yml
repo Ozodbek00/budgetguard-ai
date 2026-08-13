@@ -1,0 +1,66 @@
+# Deploy variant for a VPS that ALREADY runs a reverse proxy for other sites.
+#
+# Ports 80 and 443 can only be bound once per host, so shipping another proxy
+# would collide with the incumbent. This stack therefore publishes no host ports
+# at all and simply joins the existing proxy's Docker network, so that proxy can
+# reach this app by container name and terminate TLS for one more hostname.
+#
+# The app is consequently NOT reachable from the internet except through that
+# proxy, which is what makes it safe to trust forwarded headers unconditionally
+# (see BudgetGuard.Web/Program.cs).
+#
+# On the target server the incumbent proxy is Caddy, whose compose project
+# created the network `profin_default`. Override EDGE_NETWORK if yours differs.
+#
+# Run from the repository root:
+#   docker compose -f deploy/docker-compose.shared-proxy.yml up -d --build
+#
+# Then add the site block from deploy/Caddyfile.shared to the existing
+# Caddyfile and reload the proxy. Use the top-level docker-compose.yml instead
+# if this app is the only thing on the box.
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: src/BudgetGuard.Web/Dockerfile
+    image: budgetguard-web:prod
+    container_name: budgetguard-web
+    restart: unless-stopped
+
+    # Deliberately `expose`, not `ports`: reachable from the proxy on the shared
+    # Docker network, never directly from the host or the internet.
+    expose:
+      - "8080"
+
+    environment:
+      PORT: "8080"
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__BudgetGuard: "Data Source=/app/data/budgetguard.db"
+
+      # Seeds the synthetic demo dataset only when the database is empty, so a
+      # first-time visitor always finds a populated tool. It can never overwrite
+      # uploaded data. Set to false on any deployment holding real records.
+      Demo__SeedOnStartup: "true"
+
+    volumes:
+      # Named volume, so uploads and the database survive redeploys. This is the
+      # main thing a real server buys over a free tier with ephemeral storage.
+      - budgetguard-data:/app/data
+
+    networks:
+      - edge
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  edge:
+    name: ${EDGE_NETWORK:-profin_default}
+    external: true
+
+volumes:
+  budgetguard-data:
