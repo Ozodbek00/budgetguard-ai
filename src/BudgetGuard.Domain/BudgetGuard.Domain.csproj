@@ -7,6 +7,12 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Lets the detection tests exercise internal statistical helpers (e.g. Median)
+         directly, without widening the public surface of the domain. -->
+    <InternalsVisibleTo Include="BudgetGuard.Domain.Tests" />
+  </ItemGroup>
+
   <!--
     ARCHITECTURAL INVARIANT: this project has zero PackageReference entries.
     The domain layer must not depend on EF Core, ASP.NET Core, MediatR, or any
