@@ -115,6 +115,83 @@ reproducible from version control rather than from dashboard clicks.
 - **Spins down after ~15 minutes idle.** The first request after that takes
   30–60 seconds to cold-start. Worth warming the URL before a live demo.
 
+### Self-hosted VPS behind an existing reverse proxy (current production)
+
+This is how the live instance at <https://budgetguard-ai.proread.uz> runs: a
+Hetzner box that already serves other sites behind a single Caddy container.
+
+Ports 80 and 443 can only be bound once per host, so this stack ships no proxy
+of its own. It publishes **no host ports at all** and joins the incumbent
+proxy's Docker network, letting that proxy reach the app by container name and
+terminate TLS for one more hostname. The app is therefore unreachable from the
+internet except through the proxy.
+
+**1. Point DNS at the server.** An `A` record for the hostname must resolve
+before Caddy can obtain a certificate:
+
+```
+budgetguard-ai.proread.uz.   A   <server-ip>
+```
+
+**2. Clone and start the stack.**
+
+```bash
+git clone https://github.com/Ozodbek00/budgetguard-ai.git /opt/budgetguard-ai
+cd /opt/budgetguard-ai
+docker compose -f deploy/docker-compose.shared-proxy.yml up -d --build
+```
+
+Override `EDGE_NETWORK` if the existing proxy's network is not `profin_default`:
+
+```bash
+EDGE_NETWORK=my_proxy_net docker compose -f deploy/docker-compose.shared-proxy.yml up -d --build
+```
+
+**3. Add the site block to the existing Caddyfile.** Copy the block from
+[`deploy/Caddyfile.shared`](../deploy/Caddyfile.shared) into the Caddyfile the
+running proxy already uses. **Back it up and validate before reloading** — a
+syntax error takes down every other site that Caddy serves, not just this one:
+
+```bash
+cp /opt/profin/deploy/Caddyfile /opt/profin/deploy/Caddyfile.bak
+# ... append the block ...
+docker exec profin-caddy-1 caddy validate --config /etc/caddy/Caddyfile
+docker exec profin-caddy-1 caddy reload  --config /etc/caddy/Caddyfile
+```
+
+Caddy requests the certificate on the first HTTPS request to the new hostname.
+
+**4. Verify.**
+
+```bash
+curl -s https://budgetguard-ai.proread.uz/health
+```
+
+#### Redeploying
+
+```bash
+cd /opt/budgetguard-ai
+git pull
+docker compose -f deploy/docker-compose.shared-proxy.yml up -d --build
+```
+
+The database lives on the named volume `budgetguard_budgetguard-data` and
+survives rebuilds — uploaded datasets are not lost on redeploy. To start clean,
+`docker compose -f deploy/docker-compose.shared-proxy.yml down -v`.
+
+#### Two things that will bite you on a shared host
+
+- **Pin the compose project name.** Compose derives it from the directory
+  holding the file — `deploy` — which other stacks commonly use too. When two
+  projects share a name, each sees the other's containers as orphans and a
+  routine `docker compose down --remove-orphans` deletes the wrong application.
+  The compose file sets `name: budgetguard` for exactly this reason.
+- **The app must honour `X-Forwarded-Proto`.** Behind a TLS-terminating proxy it
+  otherwise believes it is on plain HTTP and emits absolute URLs and redirects
+  on the wrong scheme. `BudgetGuard.Web` calls `UseForwardedHeaders` and clears
+  the known-proxy allow-list, which is safe only because the container publishes
+  no host ports.
+
 ### Fly.io (alternative)
 
 `fly.toml` is committed and configured.

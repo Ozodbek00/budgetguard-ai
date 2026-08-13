@@ -5,6 +5,12 @@ spending.** Upload a spending dataset; get back a ranked list of anomalies where
 every flag comes with the arithmetic behind it, in a sentence an auditor can
 verify by hand.
 
+### ▶ Live demo: **<https://budgetguard-ai.proread.uz>**
+
+Loaded with a synthetic dataset that has four fraud patterns planted in it.
+Start on the [anomaly report](https://budgetguard-ai.proread.uz/report), then
+see [why each flag was raised](https://budgetguard-ai.proread.uz/how-it-works).
+
 [![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4)](https://dotnet.microsoft.com/)
 [![Tests](https://img.shields.io/badge/tests-184%20passing-2ea44f)](tests/)
 [![Architecture](https://img.shields.io/badge/architecture-Clean%20%2B%20CQRS-1c5d99)](docs/ARCHITECTURE.md)
@@ -181,9 +187,14 @@ Common alternative header names (`Supplier`, `Ministry`, `ContractValue`,
 
 ## Deployment
 
-`render.yaml` and `fly.toml` are committed; the container binds `$PORT`, so the
-same image runs unchanged on Render, Fly.io or Cloud Run. Steps are in
-[CONTRIBUTING.md](docs/CONTRIBUTING.md#deploying).
+The live instance runs on a Hetzner VPS behind an existing Caddy that already
+serves other sites: the stack publishes no host ports, joins that proxy's Docker
+network, and gets TLS for one more hostname. Uploaded data lives on a named
+volume and survives redeploys.
+
+`render.yaml` and `fly.toml` are also committed, and the container binds
+`$PORT`, so the same image runs unchanged on Render, Fly.io or Cloud Run. All
+three paths are in [CONTRIBUTING.md](docs/CONTRIBUTING.md#deploying).
 
 ---
 
