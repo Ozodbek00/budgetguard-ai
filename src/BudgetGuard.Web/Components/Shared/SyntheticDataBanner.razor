@@ -1,0 +1,21 @@
+@* Shown wherever synthetic demo data is being displayed.
+
+   This is a correctness requirement, not decoration: the demo dataset contains
+   deliberately planted fraud patterns, and a screenshot of a "Critical" finding
+   against an invented vendor must never be mistakable for a real audit result. *@
+
+@if (IsSyntheticDemo)
+{
+    <div class="bg-banner bg-banner-synthetic" role="status">
+        <strong>Synthetic demo data.</strong>
+        These figures are generated for demonstration and contain deliberately planted
+        anomalies. They are not real government procurement data, and no real vendor or
+        agency is described here.
+    </div>
+}
+
+@code {
+    /// <summary>Whether the dataset currently displayed came from the built-in generator.</summary>
+    [Parameter]
+    public bool IsSyntheticDemo { get; set; }
+}

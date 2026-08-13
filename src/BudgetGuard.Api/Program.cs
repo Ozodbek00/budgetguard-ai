@@ -1,6 +1,7 @@
 using BudgetGuard.Api.Endpoints;
 using BudgetGuard.Api.Infrastructure;
 using BudgetGuard.Application;
+using BudgetGuard.Application.Datasets;
 using BudgetGuard.Infrastructure;
 using Microsoft.OpenApi.Models;
 
@@ -42,6 +43,7 @@ builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(optio
 var app = builder.Build();
 
 await app.Services.MigrateDatabaseAsync();
+await app.Services.SeedDemoDataIfEmptyAsync(app.Configuration);
 
 app.UseExceptionHandler();
 

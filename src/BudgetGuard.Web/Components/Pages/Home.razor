@@ -1,7 +1,222 @@
-﻿@page "/"
+@page "/"
+@inject ISender Sender
+@inject NavigationManager Navigation
 
-<PageTitle>Home</PageTitle>
+<PageTitle>BudgetGuard AI — Upload a dataset</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="bg-hero">
+    <h1>Find the spending that does not add up — and explain why.</h1>
+    <p>
+        BudgetGuard AI screens procurement and budget data with three statistical tests
+        auditors can check by hand: first-digit conformity (Benford's Law), peer-relative
+        amount outliers, and supplier concentration. Every flag comes with the arithmetic
+        behind it, so you can verify it rather than trust it.
+    </p>
+</div>
 
-Welcome to your new app.
+<div class="bg-grid-2">
+    <section class="bg-card">
+        <h2>Load the demo dataset</h2>
+        <p class="bg-muted">
+            The fastest way to see the tool work. Generates a synthetic procurement ledger
+            with deliberately planted anomalies — threshold evasion, a round-number invoicing
+            vendor, a supplier capturing one category, and several extreme payments.
+        </p>
+
+        <button class="bg-btn bg-btn-primary" @onclick="LoadDemoAsync" disabled="@_isBusy">
+            @(_isBusy && _busyAction == BusyAction.Demo ? "Generating…" : "Load demo dataset")
+        </button>
+
+        @if (_demoResult is not null)
+        {
+            <div class="bg-banner bg-banner-ok">
+                <strong>@(_demoResult.AlreadyExisted ? "Demo dataset ready." : "Demo dataset generated.")</strong>
+                @_demoResult.RowCount.ToString("N0") transactions.
+
+                <details class="bg-details">
+                    <summary>What was planted in it (ground truth)</summary>
+                    <ul>
+                        @foreach (var planted in _demoResult.PlantedAnomalies)
+                        {
+                            <li>@planted</li>
+                        }
+                    </ul>
+                </details>
+            </div>
+        }
+    </section>
+
+    <section class="bg-card">
+        <h2>Upload your own data</h2>
+        <p class="bg-muted">
+            CSV or Excel (.xlsx), up to @MaxUploadMegabytes MB.
+            Required columns: <code>TransactionDate</code>, <code>Amount</code>,
+            <code>VendorName</code>, <code>Category</code>, <code>Department</code>.
+            Optional: <code>ExternalReference</code>, <code>Currency</code>,
+            <code>Description</code>. Common alternative names such as
+            <code>Supplier</code> or <code>Ministry</code> are recognised automatically.
+        </p>
+
+        <label class="bg-dropzone">
+            <InputFile OnChange="OnFileSelectedAsync" accept=".csv,.xlsx" disabled="@_isBusy" />
+            <span>@(_selectedFileName ?? "Choose a CSV or Excel file")</span>
+        </label>
+
+        @if (_isBusy && _busyAction == BusyAction.Upload)
+        {
+            <p class="bg-muted">Parsing and analysing…</p>
+        }
+
+        @if (_uploadErrors.Count > 0)
+        {
+            <div class="bg-banner bg-banner-error">
+                <strong>The file could not be used.</strong>
+                <ul>
+                    @foreach (var error in _uploadErrors)
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+            </div>
+        }
+
+        @if (_uploadResult is not null)
+        {
+            <div class="bg-banner bg-banner-ok">
+                <strong>Uploaded.</strong>
+                @_uploadResult.RowsAccepted.ToString("N0") rows accepted.
+
+                @if (_uploadResult.RowsSkipped > 0)
+                {
+                    <text> @_uploadResult.RowsSkipped.ToString("N0") rows skipped.</text>
+
+                    <details class="bg-details">
+                        <summary>Why rows were skipped</summary>
+                        <ul>
+                            @foreach (var warning in _uploadResult.Warnings)
+                            {
+                                <li>@warning</li>
+                            }
+                        </ul>
+                    </details>
+                }
+            </div>
+        }
+    </section>
+</div>
+
+@if (_datasets.Count > 0)
+{
+    <section class="bg-card">
+        <h2>Stored datasets</h2>
+        <table class="bg-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Source</th>
+                    <th class="bg-num">Rows</th>
+                    <th>Uploaded</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var dataset in _datasets)
+                {
+                    <tr>
+                        <td>
+                            @dataset.Name
+                            @if (dataset.IsSyntheticDemo)
+                            {
+                                <span class="bg-tag bg-tag-synthetic">synthetic</span>
+                            }
+                        </td>
+                        <td class="bg-muted">@dataset.SourceFileName</td>
+                        <td class="bg-num">@dataset.RowCount.ToString("N0")</td>
+                        <td class="bg-muted">@dataset.UploadedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                        <td>
+                            <a class="bg-btn bg-btn-small" href="@($"report?datasetId={dataset.Id}")">Analyse</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </section>
+}
+
+@code {
+    private const int MaxUploadMegabytes = 32;
+
+    private enum BusyAction { None, Demo, Upload }
+
+    private IReadOnlyList<DatasetSummaryDto> _datasets = [];
+    private LoadDemoDatasetResult? _demoResult;
+    private UploadDatasetResult? _uploadResult;
+    private List<string> _uploadErrors = [];
+    private string? _selectedFileName;
+    private bool _isBusy;
+    private BusyAction _busyAction = BusyAction.None;
+
+    protected override async Task OnInitializedAsync() => await RefreshDatasetsAsync();
+
+    private async Task RefreshDatasetsAsync() =>
+        _datasets = await Sender.Send(new GetDatasetsQuery());
+
+    private async Task LoadDemoAsync()
+    {
+        _isBusy = true;
+        _busyAction = BusyAction.Demo;
+        _uploadErrors = [];
+
+        try
+        {
+            _demoResult = await Sender.Send(new LoadDemoDatasetCommand());
+            await RefreshDatasetsAsync();
+            Navigation.NavigateTo($"report?datasetId={_demoResult.DatasetId}");
+        }
+        finally
+        {
+            _isBusy = false;
+            _busyAction = BusyAction.None;
+        }
+    }
+
+    private async Task OnFileSelectedAsync(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        _selectedFileName = file.Name;
+        _uploadErrors = [];
+        _uploadResult = null;
+        _isBusy = true;
+        _busyAction = BusyAction.Upload;
+
+        try
+        {
+            await using var stream = file.OpenReadStream(MaxUploadMegabytes * 1024L * 1024L);
+
+            // Buffered to a seekable stream first: the parsers need to read the
+            // whole file, and Blazor's browser-backed stream does not support
+            // the seeking ClosedXML performs on a workbook.
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            buffer.Position = 0;
+
+            _uploadResult = await Sender.Send(new UploadDatasetCommand(buffer, file.Name));
+
+            await RefreshDatasetsAsync();
+            Navigation.NavigateTo($"report?datasetId={_uploadResult.DatasetId}");
+        }
+        catch (BudgetGuard.Application.Common.Exceptions.ValidationException ex)
+        {
+            _uploadErrors = ex.AllMessages.ToList();
+        }
+        catch (IOException ex)
+        {
+            _uploadErrors = [$"The file could not be read: {ex.Message}"];
+        }
+        finally
+        {
+            _isBusy = false;
+            _busyAction = BusyAction.None;
+        }
+    }
+}

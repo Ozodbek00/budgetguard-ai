@@ -1,0 +1,31 @@
+# Render Blueprint — deploys the BudgetGuard AI Blazor front end as a Docker
+# web service. Render reads this automatically when you create a Blueprint from
+# the repository, so the deployment is reproducible from version control rather
+# than from dashboard clicks.
+#
+# Steps are in docs/CONTRIBUTING.md.
+
+services:
+  - type: web
+    name: budgetguard-ai
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./src/BudgetGuard.Web/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+
+      # Render injects PORT itself; the container entrypoint binds it.
+      - key: ConnectionStrings__BudgetGuard
+        value: Data Source=/app/data/budgetguard.db
+
+      # The free plan has no persistent disk, so /app/data is ephemeral and the
+      # database resets whenever the instance restarts. That is acceptable here
+      # because the synthetic demo dataset regenerates automatically on startup.
+      # Set this to false and attach a disk before putting real data in.
+      - key: Demo__SeedOnStartup
+        value: "true"

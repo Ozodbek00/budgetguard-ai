@@ -1,0 +1,26 @@
+# Build output and local state must never enter the image: a stale bin/ from the
+# host can silently shadow the container build, and a committed .db would ship
+# someone's uploaded data inside the image.
+**/bin/
+**/obj/
+**/out/
+**/data/
+**/*.db
+**/*.db-shm
+**/*.db-wal
+
+.git/
+.github/
+.vs/
+.idea/
+.claude/
+
+docs/
+tests/
+**/TestResults/
+
+**/.dockerignore
+**/Dockerfile*
+docker-compose*.yml
+README.md
+*.md

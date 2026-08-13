@@ -1,23 +1,38 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+<div class="bg-shell">
+    <header class="bg-topbar">
+        <a class="bg-brand" href="">
+            <span class="bg-brand-mark">BG</span>
+            <span class="bg-brand-text">
+                <strong>BudgetGuard AI</strong>
+                <small>Explainable procurement forensics</small>
+            </span>
+        </a>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+        <nav class="bg-nav">
+            <NavLink class="bg-nav-link" href="" Match="NavLinkMatch.All">Upload</NavLink>
+            <NavLink class="bg-nav-link" href="report">Anomaly report</NavLink>
+            <NavLink class="bg-nav-link" href="benford">Benford's Law</NavLink>
+            <NavLink class="bg-nav-link" href="vendors">Vendor risk</NavLink>
+            <NavLink class="bg-nav-link" href="how-it-works">How this works</NavLink>
+        </nav>
+    </header>
 
-        <article class="content px-4">
-            @Body
-        </article>
+    <main class="bg-main">
+        @Body
     </main>
+
+    <footer class="bg-footer">
+        <span>
+            BudgetGuard AI — statistical forensics for public spending.
+            Findings are screening leads for human review, not determinations of wrongdoing.
+        </span>
+    </footer>
 </div>
 
-<div id="blazor-error-ui" data-nosnippet>
+<div id="blazor-error-ui">
     An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
+    <a href="" class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>

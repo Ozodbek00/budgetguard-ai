@@ -1,0 +1,58 @@
+# Local run of both surfaces:
+#   docker compose up --build
+#     Blazor UI  -> http://localhost:8080
+#     Swagger API -> http://localhost:8081/swagger
+#
+# Each service gets its OWN database volume. That is deliberate: SQLite
+# serialises writers with file locks, and pointing two independently scaled
+# containers at one file invites lock contention for no benefit here. The two
+# surfaces are alternative front ends over the same engine, not two halves of
+# one system — the Blazor app talks to the Application layer in-process and
+# never calls the API. See docs/adr/0003-blazor-server-over-spa.md.
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: src/BudgetGuard.Web/Dockerfile
+    image: budgetguard-web:local
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__BudgetGuard: "Data Source=/app/data/budgetguard.db"
+    volumes:
+      - web-data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: src/BudgetGuard.Api/Dockerfile
+    image: budgetguard-api:local
+    ports:
+      - "8081:8080"
+    environment:
+      PORT: "8080"
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__BudgetGuard: "Data Source=/app/data/budgetguard.db"
+    volumes:
+      - api-data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  web-data:
+  api-data:

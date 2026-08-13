@@ -1,0 +1,48 @@
+# Fly.io deployment for the BudgetGuard AI Blazor front end.
+# Alternative to render.yaml; see docs/CONTRIBUTING.md for both paths.
+#
+#   fly launch --no-deploy --copy-config
+#   fly deploy
+
+app = "budgetguard-ai"
+primary_region = "fra"
+
+[build]
+  dockerfile = "src/BudgetGuard.Web/Dockerfile"
+
+[env]
+  ASPNETCORE_ENVIRONMENT = "Production"
+  ConnectionStrings__BudgetGuard = "Data Source=/app/data/budgetguard.db"
+  Demo__SeedOnStartup = "true"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  # Blazor Server keeps a WebSocket open per connected client. Suspending a
+  # machine with live circuits drops them, so the idle timeout is generous
+  # enough that a reviewer reading a report does not get disconnected.
+  [http_service.concurrency]
+    type = "connections"
+    soft_limit = 40
+    hard_limit = 80
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+# Uncomment to make the SQLite database survive restarts. Without it the
+# database is ephemeral and the demo dataset is regenerated on each boot.
+# [mounts]
+#   source = "budgetguard_data"
+#   destination = "/app/data"

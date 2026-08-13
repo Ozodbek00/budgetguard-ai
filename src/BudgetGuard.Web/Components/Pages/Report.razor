@@ -1,0 +1,240 @@
+@page "/report"
+@inject ISender Sender
+
+<PageTitle>BudgetGuard AI — Anomaly report</PageTitle>
+
+@if (_error is not null)
+{
+    <div class="bg-banner bg-banner-error">
+        <strong>No report available.</strong> @_error
+        <a href="">Load a dataset first.</a>
+    </div>
+}
+else if (_report is null)
+{
+    <p class="bg-muted">Running detection…</p>
+}
+else
+{
+    <SyntheticDataBanner IsSyntheticDemo="_report.IsSyntheticDemo" />
+
+    <div class="bg-page-head">
+        <div>
+            <h1>Anomaly report</h1>
+            <p class="bg-muted">
+                @_report.DatasetName — @_report.TransactionCount.ToString("N0") transactions analysed,
+                @_report.GeneratedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC
+            </p>
+        </div>
+    </div>
+
+    <div class="bg-stats">
+        <div class="bg-stat bg-sev-critical">
+            <span class="bg-stat-value">@_report.Summary.Critical</span>
+            <span class="bg-stat-label">Critical</span>
+        </div>
+        <div class="bg-stat bg-sev-high">
+            <span class="bg-stat-value">@_report.Summary.High</span>
+            <span class="bg-stat-label">High</span>
+        </div>
+        <div class="bg-stat bg-sev-medium">
+            <span class="bg-stat-value">@_report.Summary.Medium</span>
+            <span class="bg-stat-label">Medium</span>
+        </div>
+        <div class="bg-stat bg-sev-low">
+            <span class="bg-stat-value">@_report.Summary.Low</span>
+            <span class="bg-stat-label">Low</span>
+        </div>
+        <div class="bg-stat bg-stat-accent">
+            <span class="bg-stat-value">@_report.Summary.Corroborated</span>
+            <span class="bg-stat-label">Corroborated by 2+ methods</span>
+        </div>
+    </div>
+
+    <section class="bg-card">
+        <div class="bg-filters">
+            <label>
+                Category
+                <select @bind="_category" @bind:after="ReloadAsync">
+                    <option value="">All categories</option>
+                    @foreach (var category in _allCategories)
+                    {
+                        <option value="@category">@category</option>
+                    }
+                </select>
+            </label>
+
+            <label>
+                Department
+                <select @bind="_department" @bind:after="ReloadAsync">
+                    <option value="">All departments</option>
+                    @foreach (var department in _allDepartments)
+                    {
+                        <option value="@department">@department</option>
+                    }
+                </select>
+            </label>
+
+            <label>
+                Minimum severity
+                <select @bind="_minimumSeverity" @bind:after="ReloadAsync">
+                    <option value="">Any</option>
+                    <option value="@Severity.Medium">Medium and above</option>
+                    <option value="@Severity.High">High and above</option>
+                    <option value="@Severity.Critical">Critical only</option>
+                </select>
+            </label>
+
+            <span class="bg-muted bg-filter-note">
+                Filters narrow what is shown. They never change the population the
+                statistics were computed over.
+            </span>
+        </div>
+
+        @if (_report.Findings.Count == 0)
+        {
+            <p class="bg-muted">
+                No findings match these filters. On a clean dataset that is the expected
+                result — the engine is built to stay quiet on spending that behaves normally.
+            </p>
+        }
+        else
+        {
+            <table class="bg-table bg-table-findings">
+                <thead>
+                    <tr>
+                        <th>Severity</th>
+                        <th>Subject</th>
+                        <th>Category / Department</th>
+                        <th class="bg-num">Amount</th>
+                        <th class="bg-num">Risk</th>
+                        <th>Why it was flagged</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var finding in _report.Findings)
+                    {
+                        <tr>
+                            <td>
+                                <span class="bg-pill @SeverityClass(finding.Severity)">@finding.Severity</span>
+                                @if (finding.IsCorroborated)
+                                {
+                                    <span class="bg-tag bg-tag-corroborated" title="Independent methods agree">
+                                        @finding.Detectors.Count methods
+                                    </span>
+                                }
+                            </td>
+                            <td>
+                                <strong>@finding.SubjectLabel</strong>
+                                <div class="bg-muted bg-small">@finding.SubjectType</div>
+                            </td>
+                            <td class="bg-muted bg-small">
+                                @(finding.Category ?? "—")
+                                @if (!string.IsNullOrEmpty(finding.Department))
+                                {
+                                    <div>@finding.Department</div>
+                                }
+                            </td>
+                            <td class="bg-num">
+                                @(finding.Amount.HasValue ? finding.Amount.Value.ToString("N0") : "—")
+                                @if (finding.TransactionDate.HasValue)
+                                {
+                                    <div class="bg-muted bg-small">
+                                        @finding.TransactionDate.Value.ToString("yyyy-MM-dd")
+                                    </div>
+                                }
+                            </td>
+                            <td class="bg-num">@finding.RiskScore.ToString("F2")</td>
+                            <td class="bg-explanation">
+                                @foreach (var signal in finding.Signals)
+                                {
+                                    <details>
+                                        <summary>
+                                            <span class="bg-detector">@DetectorLabel(signal.Detector)</span>
+                                            @signal.Explanation
+                                        </summary>
+                                        <dl class="bg-evidence">
+                                            @foreach (var item in signal.Evidence)
+                                            {
+                                                <div>
+                                                    <dt>@item.Key</dt>
+                                                    <dd>@item.Value</dd>
+                                                </div>
+                                            }
+                                        </dl>
+                                    </details>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </section>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "datasetId")]
+    private Guid? DatasetId { get; set; }
+
+    private AnomalyReportDto? _report;
+    private string? _error;
+
+    private string _category = string.Empty;
+    private string _department = string.Empty;
+    private string _minimumSeverity = string.Empty;
+
+    // Held separately so narrowing the filters cannot progressively empty the
+    // dropdowns that produced the current view.
+    private IReadOnlyList<string> _allCategories = [];
+    private IReadOnlyList<string> _allDepartments = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAsync();
+
+        if (_report is not null)
+        {
+            _allCategories = _report.Categories;
+            _allDepartments = _report.Departments;
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        try
+        {
+            _error = null;
+
+            Severity? severity = string.IsNullOrEmpty(_minimumSeverity)
+                ? null
+                : Enum.Parse<Severity>(_minimumSeverity);
+
+            _report = await Sender.Send(new GetAnomalyReportQuery(
+                DatasetId,
+                string.IsNullOrEmpty(_category) ? null : _category,
+                string.IsNullOrEmpty(_department) ? null : _department,
+                severity));
+        }
+        catch (BudgetGuard.Application.Common.Exceptions.NotFoundException)
+        {
+            _error = "No dataset has been uploaded yet.";
+        }
+    }
+
+    private static string SeverityClass(string severity) => severity switch
+    {
+        nameof(Severity.Critical) => "bg-sev-critical",
+        nameof(Severity.High) => "bg-sev-high",
+        nameof(Severity.Medium) => "bg-sev-medium",
+        _ => "bg-sev-low"
+    };
+
+    private static string DetectorLabel(string detector) => detector switch
+    {
+        nameof(DetectorKind.Benford) => "Benford's Law",
+        nameof(DetectorKind.ZScoreOutlier) => "Amount outlier",
+        nameof(DetectorKind.VendorConcentration) => "Vendor concentration",
+        _ => detector
+    };
+}
