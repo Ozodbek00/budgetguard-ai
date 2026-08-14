@@ -1,5 +1,10 @@
+@inject IUiText T
+
+@* lang reflects the selected language rather than being hardcoded to "en":
+   screen readers pick pronunciation from it, and it is what tells a browser
+   whether to offer to translate the page. *@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="@T.LanguageTag">
 
 <head>
     <meta charset="utf-8" />

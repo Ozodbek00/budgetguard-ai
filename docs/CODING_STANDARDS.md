@@ -7,7 +7,7 @@ guidelines; what follows is what is particular to BudgetGuard AI, and why.
 
 ## The rules that are load-bearing
 
-These four are not style preferences. Breaking any of them removes a property
+These five are not style preferences. Breaking any of them removes a property
 the product depends on.
 
 ### 1. `BudgetGuard.Domain` has zero package references
@@ -72,6 +72,30 @@ return $"\"{vendor}\" received {Percent(share)} of all spend in category " +
        $"{Percent(expected)} if the {vendorCount} vendors competing in that " +
        $"category shared it evenly — {multiple:F1}x the even-split expectation.";
 ```
+
+### 5. Text the user reads is translated, including detection output
+
+The UI ships in English, Uzbek and Russian, and so do the explanations the
+detectors produce. Translating "Anomaly report" while leaving the sentence that
+justifies a flag in English would defeat the point of the product for anyone who
+does not read English.
+
+Two mechanisms, because the layers have different constraints:
+
+- **Domain** uses `IExplanationWriter`, one implementation per language.
+  `IStringLocalizer` is an ASP.NET Core dependency and rule 1 forbids it here.
+- **Web** uses `IUiText`, one implementation per language, for the same reason
+  resource files were not chosen: a missing string is a compile error rather
+  than a resource key rendered into the page.
+
+Each language owns its **number formatting** as well as its wording, through an
+explicit `NumberFormatInfo`. Do not rely on the ambient culture: it would make
+output depend on the machine the analysis ran on, and it made English test
+assertions locale-dependent.
+
+Adding a string means adding it to the interface and all three implementations —
+the compiler will tell you which you missed. Preview detection output in every
+language with `dotnet run --project tools/BudgetGuard.DataGenerator -- lang`.
 
 ---
 

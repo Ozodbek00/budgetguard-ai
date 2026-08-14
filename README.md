@@ -8,6 +8,9 @@ verify by hand.
 ### ▶ Live demo: **<https://budgetguard-ai.proread.uz>**
 ### ▶ API and Swagger: **<https://budgetguard-api.proread.uz>**
 
+Available in **English, O'zbekcha and Русский** — the findings themselves are
+translated, not just the interface.
+
 Loaded with a synthetic dataset that has four fraud patterns planted in it.
 Start on the [anomaly report](https://budgetguard-ai.proread.uz/report), then
 see [why each flag was raised](https://budgetguard-ai.proread.uz/how-it-works).
@@ -18,7 +21,7 @@ HTTP. They run as separate containers with separate databases, so an upload to
 one is not visible in the other.
 
 [![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4)](https://dotnet.microsoft.com/)
-[![Tests](https://img.shields.io/badge/tests-184%20passing-2ea44f)](tests/)
+[![Tests](https://img.shields.io/badge/tests-221%20passing-2ea44f)](tests/)
 [![Architecture](https://img.shields.io/badge/architecture-Clean%20%2B%20CQRS-1c5d99)](docs/ARCHITECTURE.md)
 
 ---
@@ -159,7 +162,7 @@ BudgetGuard.Api  ·  BudgetGuard.Web    two surfaces over one engine
 ```
 
 The domain project has **no package references at all**. That is not
-decoration — it is why 114 detection tests run in about 70 milliseconds with no
+decoration — it is why 151 detection tests run in about 90 milliseconds with no
 host, no database and no mocking framework, and therefore why it was practical
 to write the clean-data regression tests that found all three defects above.
 
@@ -174,7 +177,7 @@ one implementation of every use case.
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Layer responsibilities, request flows, why Clean Architecture and CQRS here |
 | [DETECTION_METHODOLOGY.md](docs/DETECTION_METHODOLOGY.md) | The statistics: theory, thresholds, corrections, limitations, validation |
 | [DATA_MODEL.md](docs/DATA_MODEL.md) | Entities, input schema, accepted column names, parsing rules |
-| [CODING_STANDARDS.md](docs/CODING_STANDARDS.md) | Handler patterns, error handling, the four load-bearing rules |
+| [CODING_STANDARDS.md](docs/CODING_STANDARDS.md) | Handler patterns, error handling, localisation, the five load-bearing rules |
 | [CONTRIBUTING.md](docs/CONTRIBUTING.md) | Local setup, tests, deployment steps, adding a detection rule |
 | [ADR 0001](docs/adr/0001-clean-architecture-cqrs.md) | Clean Architecture + CQRS |
 | [ADR 0002](docs/adr/0002-sqlite-over-postgres-for-mvp.md) | SQLite rather than PostgreSQL |
