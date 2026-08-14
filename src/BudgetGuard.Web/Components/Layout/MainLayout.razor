@@ -22,7 +22,12 @@
 
         @* Plain links, not a Blazor control. The culture is resolved when the
            request that opened the circuit is handled, so switching language has
-           to set a cookie and reload rather than update state in place. *@
+           to set a cookie and reload rather than update state in place.
+
+           data-enhance-nav="false" is load-bearing. Blazor's enhanced navigation
+           otherwise intercepts these clicks, fetches the target and patches the
+           DOM — the cookie gets set, but the existing circuit keeps rendering in
+           the previous language, so clicking a language appears to do nothing. *@
         <div class="bg-lang" role="group" aria-label="Language">
             @foreach (var option in Languages)
             {
@@ -31,6 +36,7 @@
                 <a class="bg-lang-link @(isCurrent ? "active" : "")"
                    href="@LanguageHref(option.Tag)"
                    hreflang="@option.Tag"
+                   data-enhance-nav="false"
                    aria-current="@(isCurrent ? "true" : null)">@option.Label</a>
             }
         </div>
