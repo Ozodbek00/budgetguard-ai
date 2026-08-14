@@ -1,16 +1,17 @@
+@inject IUiText T
+
 @* Shown wherever synthetic demo data is being displayed.
 
    This is a correctness requirement, not decoration: the demo dataset contains
    deliberately planted fraud patterns, and a screenshot of a "Critical" finding
-   against an invented vendor must never be mistakable for a real audit result. *@
+   against an invented vendor must never be mistakable for a real audit result.
+   It is translated for the same reason — a warning nobody can read is not a
+   warning. *@
 
 @if (IsSyntheticDemo)
 {
     <div class="bg-banner bg-banner-synthetic" role="status">
-        <strong>Synthetic demo data.</strong>
-        These figures are generated for demonstration and contain deliberately planted
-        anomalies. They are not real government procurement data, and no real vendor or
-        agency is described here.
+        @T.SyntheticBanner
     </div>
 }
 

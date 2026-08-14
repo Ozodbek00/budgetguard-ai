@@ -8,7 +8,15 @@
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <WarningsAsErrors>nullable</WarningsAsErrors>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Cultures are required: the UI and the detection explanations ship in
+         English, Uzbek and Russian, and RequestLocalization cannot resolve a
+         culture at all under invariant globalization.
+
+         Explanation output does not depend on the ambient culture despite this:
+         each IExplanationWriter formats against its own explicit
+         NumberFormatInfo, so a figure in a finding reads the same wherever the
+         analysis ran. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
 
 </Project>

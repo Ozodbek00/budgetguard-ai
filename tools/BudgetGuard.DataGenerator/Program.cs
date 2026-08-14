@@ -4,6 +4,7 @@ using BudgetGuard.Domain.Demo;
 using BudgetGuard.Domain.Detection;
 using BudgetGuard.Domain.Detection.Benford;
 using BudgetGuard.Domain.Detection.Concentration;
+using BudgetGuard.Domain.Detection.Explanations;
 using BudgetGuard.Domain.Detection.Outliers;
 
 // Small utility with two jobs:
@@ -26,6 +27,10 @@ switch (command)
 
     case "diagnose":
         Diagnose();
+        break;
+
+    case "lang":
+        ShowTranslations();
         break;
 
     default:
@@ -123,3 +128,59 @@ void Diagnose()
 
 static string Truncate(string value, int max) =>
     value.Length <= max ? value : value[..max] + "...";
+
+// Prints the same finding in every supported language, side by side. Exists so
+// the translations can be read and checked by a person — a native speaker
+// reviewing wording should not have to run the web app to see the output.
+void ShowTranslations()
+{
+    var settings = new DetectionSettings();
+
+    foreach (var tag in ExplanationWriters.SupportedLanguages)
+    {
+        var writer = ExplanationWriters.For(tag);
+
+        var aggregator = new AnomalyAggregator(
+            new BenfordAnalyzer(settings.Benford, writer),
+            new ZScoreOutlierDetector(settings.ZScore, writer),
+            new VendorConcentrationAnalyzer(settings.VendorConcentration, writer),
+            settings,
+            writer);
+
+        var report = aggregator.Analyze(dataset.Transactions, "Demo dataset");
+
+        Console.WriteLine(new string('=', 78));
+        Console.WriteLine($"  {tag.ToUpperInvariant()}");
+        Console.WriteLine(new string('=', 78));
+
+        Console.WriteLine();
+        Console.WriteLine("-- dataset Benford --");
+        Console.WriteLine(report.DatasetBenford.Explanation);
+
+        var vendor = report.Findings.FirstOrDefault(f => f.SubjectType == AnomalySubjectType.Vendor);
+        if (vendor is not null)
+        {
+            Console.WriteLine();
+            Console.WriteLine("-- vendor concentration --");
+            Console.WriteLine(vendor.Signals[0].Explanation);
+        }
+
+        var transaction = report.Findings.FirstOrDefault(f => f.SubjectType == AnomalySubjectType.Transaction);
+        if (transaction is not null)
+        {
+            Console.WriteLine();
+            Console.WriteLine("-- amount outlier --");
+            Console.WriteLine(transaction.Signals[0].Explanation);
+        }
+
+        var scope = report.Scopes.FirstOrDefault();
+        if (scope is not null)
+        {
+            Console.WriteLine();
+            Console.WriteLine("-- scope concentration --");
+            Console.WriteLine(scope.Explanation);
+        }
+
+        Console.WriteLine();
+    }
+}

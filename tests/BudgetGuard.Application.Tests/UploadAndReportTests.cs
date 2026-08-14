@@ -6,6 +6,7 @@ using BudgetGuard.Domain.Demo;
 using BudgetGuard.Domain.Detection;
 using BudgetGuard.Domain.Detection.Benford;
 using BudgetGuard.Domain.Detection.Concentration;
+using BudgetGuard.Domain.Detection.Explanations;
 using BudgetGuard.Domain.Detection.Outliers;
 using BudgetGuard.Domain.Entities;
 using BudgetGuard.Infrastructure.Files;
@@ -69,7 +70,8 @@ public sealed class UploadAndReportTests : IDisposable
             settings);
 
         var analysisService = new AnalysisService(
-            _repository, aggregator, new AnalysisCache(), TimeProvider.System);
+            _repository, aggregator, new AnalysisCache(),
+            new EnglishExplanationWriter(), TimeProvider.System);
 
         return new GetAnomalyReportQueryHandler(analysisService);
     }

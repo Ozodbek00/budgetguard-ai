@@ -2,15 +2,15 @@
 @using Markdig
 @inject IWebHostEnvironment Environment
 @inject ILogger<HowItWorks> Logger
+@inject IUiText T
 
-<PageTitle>BudgetGuard AI — How this works</PageTitle>
+<PageTitle>BudgetGuard AI — @T.NavHowItWorks</PageTitle>
 
 <div class="bg-page-head">
     <div>
-        <h1>How this works</h1>
+        <h1>@T.HowItWorksTitle</h1>
         <p class="bg-muted">
-            The statistical methods behind every flag, the thresholds chosen and why,
-            and where they can be wrong.
+            @T.HowItWorksSubtitle
         </p>
     </div>
 </div>
@@ -21,10 +21,15 @@
    contributor and irrelevant to the auditor reading the page. It is documented
    in docs/CODING_STANDARDS.md and README.md, where the audience is right. *@
 
+@if (T.LanguageTag != "en")
+{
+    <div class="bg-banner bg-banner-synthetic">@T.MethodologyEnglishOnly</div>
+}
+
 <section class="bg-card">
     @if (_html is null)
     {
-        <p class="bg-muted">Loading methodology…</p>
+        <p class="bg-muted">@T.Loading</p>
     }
     else
     {
@@ -56,8 +61,7 @@
             Logger.LogWarning(
                 "Methodology document not found. Looked in: {Paths}.", string.Join("; ", candidates));
 
-            _html = "<p>The methodology document could not be loaded. It is available in the " +
-                    "repository at <code>docs/DETECTION_METHODOLOGY.md</code>.</p>";
+            _html = "<p>" + System.Net.WebUtility.HtmlEncode(T.MethodologyUnavailable) + "</p>";
             return;
         }
 

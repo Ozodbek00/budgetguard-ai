@@ -1,3 +1,4 @@
+using BudgetGuard.Domain.Detection.Explanations;
 using BudgetGuard.Domain.Entities;
 
 namespace BudgetGuard.Domain.Detection.Concentration;
@@ -45,9 +46,17 @@ public interface IVendorConcentrationAnalyzer
 public sealed class VendorConcentrationAnalyzer : IVendorConcentrationAnalyzer
 {
     private readonly VendorConcentrationSettings _settings;
+    private readonly IExplanationWriter _writer;
 
-    public VendorConcentrationAnalyzer(VendorConcentrationSettings settings) =>
+    /// <param name="settings">Thresholds. See <see cref="VendorConcentrationSettings"/>.</param>
+    /// <param name="writer">Language the finding sentence is written in. Defaults to English.</param>
+    public VendorConcentrationAnalyzer(
+        VendorConcentrationSettings settings,
+        IExplanationWriter? writer = null)
+    {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _writer = writer ?? new EnglishExplanationWriter();
+    }
 
     /// <inheritdoc />
     public VendorConcentrationResult Analyze(IReadOnlyList<ProcurementTransaction> transactions)
@@ -109,7 +118,12 @@ public sealed class VendorConcentrationAnalyzer : IVendorConcentrationAnalyzer
                     expectedShare,
                     hhi > _settings.HighlyConcentratedHhi,
                     vendorShares,
-                    BuildScopeExplanation(scope, scopeGroup.Key, vendorShares.Length, hhi)));
+                    _writer.Scope(new ScopeExplanationContext(
+                        scope,
+                        scopeGroup.Key,
+                        vendorShares.Length,
+                        hhi,
+                        _settings.HighlyConcentratedHhi))));
 
                 // Under an even award process, contracts land on a vendor as
                 // Binomial(T, 1/N). These are that distribution's moments.
@@ -157,10 +171,24 @@ public sealed class VendorConcentrationAnalyzer : IVendorConcentrationAnalyzer
                         expectedContractCount,
                         contractCountZ,
                         NormaliseScore(vendor.SpendShare, excessMultiple),
-                        BuildVendorExplanation(
-                            vendor, scope, scopeGroup.Key, totalSpend,
-                            members.Length, vendorShares.Length, expectedShare, excessMultiple,
-                            expectedContractCount, contractCountZ)));
+                        _writer.Concentration(new ConcentrationExplanationContext(
+                            vendor.VendorName,
+                            scope,
+                            scopeGroup.Key,
+                            vendor.Spend,
+                            totalSpend,
+                            vendor.SpendShare,
+                            expectedShare,
+                            excessMultiple,
+                            vendor.ContractCount,
+                            members.Length,
+                            vendor.CountShare,
+                            vendorShares.Length,
+                            expectedContractCount,
+                            contractCountZ,
+                            _settings.SpendShareThreshold,
+                            _settings.ExpectedShareMultiple,
+                            _settings.ContractCountZThreshold))));
                 }
             }
         }
@@ -196,52 +224,4 @@ public sealed class VendorConcentrationAnalyzer : IVendorConcentrationAnalyzer
             _ => throw new ArgumentOutOfRangeException(nameof(scope), scope, "Unknown scope.")
         };
 
-    private static string ScopeLabel(ConcentrationScope scope) =>
-        scope == ConcentrationScope.Category ? "category" : "department";
-
-    private string BuildVendorExplanation(
-        VendorShare vendor,
-        ConcentrationScope scope,
-        string scopeKey,
-        decimal totalSpend,
-        int transactionCount,
-        int vendorCount,
-        double expectedShare,
-        double excessMultiple,
-        double expectedContractCount,
-        double contractCountZ)
-    {
-        return
-            $"\"{vendor.VendorName}\" received {DetectionFormat.Percent(vendor.SpendShare)} of all spend in " +
-            $"{ScopeLabel(scope)} \"{scopeKey}\" ({vendor.Spend:N0} of {totalSpend:N0}), " +
-            $"versus an expected {DetectionFormat.Percent(expectedShare)} if the {vendorCount:N0} vendors " +
-            $"competing in that {ScopeLabel(scope)} shared it evenly — {excessMultiple:F1}x the even-split " +
-            $"expectation. This is not a single large award: they hold {vendor.ContractCount:N0} of " +
-            $"{transactionCount:N0} contracts ({DetectionFormat.Percent(vendor.CountShare)}) where an even " +
-            $"award process would give them about {expectedContractCount:N1}, an excess of " +
-            $"{contractCountZ:F1} standard deviations. The flag thresholds are " +
-            $"{DetectionFormat.Percent(_settings.SpendShareThreshold, 0)} of spend or " +
-            $"{_settings.ExpectedShareMultiple:F1}x the even-split expectation, together with a contract " +
-            $"count at least {_settings.ContractCountZThreshold:F1} standard deviations above chance.";
-    }
-
-    private string BuildScopeExplanation(
-        ConcentrationScope scope,
-        string scopeKey,
-        int vendorCount,
-        double hhi)
-    {
-        var evenSplitHhi = 10_000d / vendorCount;
-
-        var verdict = hhi > _settings.HighlyConcentratedHhi
-            ? $"Above {_settings.HighlyConcentratedHhi:N0} is classed as a highly concentrated " +
-              "market under the US DOJ/FTC Horizontal Merger Guidelines"
-            : $"This is below the {_settings.HighlyConcentratedHhi:N0} threshold at which a market " +
-              "is classed as highly concentrated";
-
-        return
-            $"{char.ToUpperInvariant(ScopeLabel(scope)[0])}{ScopeLabel(scope)[1..]} \"{scopeKey}\" " +
-            $"has a Herfindahl-Hirschman Index of {hhi:N0} across {vendorCount:N0} vendors. " +
-            $"{verdict}; an even split among {vendorCount:N0} vendors would score {evenSplitHhi:N0}.";
-    }
 }

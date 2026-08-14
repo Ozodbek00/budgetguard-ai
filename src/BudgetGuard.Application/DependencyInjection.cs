@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Reflection;
 using BudgetGuard.Application.Analysis.Services;
 using BudgetGuard.Application.Common.Behaviours;
@@ -5,6 +6,7 @@ using BudgetGuard.Domain.Demo;
 using BudgetGuard.Domain.Detection;
 using BudgetGuard.Domain.Detection.Benford;
 using BudgetGuard.Domain.Detection.Concentration;
+using BudgetGuard.Domain.Detection.Explanations;
 using BudgetGuard.Domain.Detection.Outliers;
 using FluentValidation;
 using Microsoft.Extensions.Configuration;
@@ -43,21 +45,29 @@ public static class DependencyInjection
 
         services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
 
-        // Detectors are stateless and thread-safe, so one instance each.
-        services.AddSingleton<IBenfordAnalyzer>(sp =>
-            new BenfordAnalyzer(Settings(sp).Benford));
+        // Detectors are stateless, but the language of the sentences they write
+        // is per-request, so they are scoped rather than singleton and every
+        // one of them is built from the SAME writer instance. Mixing languages
+        // here would produce a finding whose sentence and evidence table
+        // disagreed.
+        services.AddScoped<IExplanationWriter>(_ =>
+            ExplanationWriters.For(CultureInfo.CurrentUICulture.Name));
 
-        services.AddSingleton<IZScoreOutlierDetector>(sp =>
-            new ZScoreOutlierDetector(Settings(sp).ZScore));
+        services.AddScoped<IBenfordAnalyzer>(sp =>
+            new BenfordAnalyzer(Settings(sp).Benford, Writer(sp)));
 
-        services.AddSingleton<IVendorConcentrationAnalyzer>(sp =>
-            new VendorConcentrationAnalyzer(Settings(sp).VendorConcentration));
+        services.AddScoped<IZScoreOutlierDetector>(sp =>
+            new ZScoreOutlierDetector(Settings(sp).ZScore, Writer(sp)));
 
-        services.AddSingleton<IAnomalyAggregator>(sp => new AnomalyAggregator(
+        services.AddScoped<IVendorConcentrationAnalyzer>(sp =>
+            new VendorConcentrationAnalyzer(Settings(sp).VendorConcentration, Writer(sp)));
+
+        services.AddScoped<IAnomalyAggregator>(sp => new AnomalyAggregator(
             sp.GetRequiredService<IBenfordAnalyzer>(),
             sp.GetRequiredService<IZScoreOutlierDetector>(),
             sp.GetRequiredService<IVendorConcentrationAnalyzer>(),
-            Settings(sp)));
+            Settings(sp),
+            Writer(sp)));
 
         services.AddSingleton<SyntheticDatasetGenerator>();
         services.AddSingleton<IAnalysisCache, AnalysisCache>();
@@ -70,4 +80,7 @@ public static class DependencyInjection
 
     private static DetectionSettings Settings(IServiceProvider provider) =>
         provider.GetRequiredService<IOptions<DetectionSettings>>().Value;
+
+    private static IExplanationWriter Writer(IServiceProvider provider) =>
+        provider.GetRequiredService<IExplanationWriter>();
 }

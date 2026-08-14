@@ -1,4 +1,6 @@
 @inherits LayoutComponentBase
+@inject IUiText T
+@inject NavigationManager Navigation
 
 <div class="bg-shell">
     <header class="bg-topbar">
@@ -6,17 +8,32 @@
             <span class="bg-brand-mark">BG</span>
             <span class="bg-brand-text">
                 <strong>BudgetGuard AI</strong>
-                <small>Explainable procurement forensics</small>
+                <small>@T.Tagline</small>
             </span>
         </a>
 
         <nav class="bg-nav">
-            <NavLink class="bg-nav-link" href="" Match="NavLinkMatch.All">Upload</NavLink>
-            <NavLink class="bg-nav-link" href="report">Anomaly report</NavLink>
-            <NavLink class="bg-nav-link" href="benford">Benford's Law</NavLink>
-            <NavLink class="bg-nav-link" href="vendors">Vendor risk</NavLink>
-            <NavLink class="bg-nav-link" href="how-it-works">How this works</NavLink>
+            <NavLink class="bg-nav-link" href="" Match="NavLinkMatch.All">@T.NavUpload</NavLink>
+            <NavLink class="bg-nav-link" href="report">@T.NavReport</NavLink>
+            <NavLink class="bg-nav-link" href="benford">@T.NavBenford</NavLink>
+            <NavLink class="bg-nav-link" href="vendors">@T.NavVendors</NavLink>
+            <NavLink class="bg-nav-link" href="how-it-works">@T.NavHowItWorks</NavLink>
         </nav>
+
+        @* Plain links, not a Blazor control. The culture is resolved when the
+           request that opened the circuit is handled, so switching language has
+           to set a cookie and reload rather than update state in place. *@
+        <div class="bg-lang" role="group" aria-label="Language">
+            @foreach (var option in Languages)
+            {
+                var isCurrent = option.Tag == T.LanguageTag;
+
+                <a class="bg-lang-link @(isCurrent ? "active" : "")"
+                   href="@LanguageHref(option.Tag)"
+                   hreflang="@option.Tag"
+                   aria-current="@(isCurrent ? "true" : null)">@option.Label</a>
+            }
+        </div>
     </header>
 
     <main class="bg-main">
@@ -24,10 +41,7 @@
     </main>
 
     <footer class="bg-footer">
-        <span>
-            BudgetGuard AI — statistical forensics for public spending.
-            Findings are screening leads for human review, not determinations of wrongdoing.
-        </span>
+        <span>@T.FooterDisclaimer</span>
     </footer>
 </div>
 
@@ -36,3 +50,24 @@
     <a href="" class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    private static readonly (string Tag, string Label)[] Languages =
+    [
+        ("en", "EN"),
+        ("uz", "UZ"),
+        ("ru", "RU")
+    ];
+
+    /// <summary>
+    /// Switch link that returns the reader to the page they were on, so
+    /// changing language mid-report does not send them back to the upload screen.
+    /// </summary>
+    private string LanguageHref(string culture)
+    {
+        var relative = "/" + Navigation.ToBaseRelativePath(Navigation.Uri);
+
+        return $"/set-language?culture={Uri.EscapeDataString(culture)}" +
+               $"&redirectUri={Uri.EscapeDataString(relative)}";
+    }
+}

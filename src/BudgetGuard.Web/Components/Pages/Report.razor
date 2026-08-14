@@ -1,18 +1,20 @@
 @page "/report"
 @inject ISender Sender
+@inject IUiText T
+@inject BudgetGuard.Domain.Detection.Explanations.IExplanationWriter Writer
 
-<PageTitle>BudgetGuard AI — Anomaly report</PageTitle>
+<PageTitle>BudgetGuard AI — @T.ReportTitle</PageTitle>
 
 @if (_error is not null)
 {
     <div class="bg-banner bg-banner-error">
-        <strong>No report available.</strong> @_error
-        <a href="">Load a dataset first.</a>
+        <strong>@T.NoDatasetTitle</strong> @_error
+        <a href="">@T.LoadDatasetFirst</a>
     </div>
 }
 else if (_report is null)
 {
-    <p class="bg-muted">Running detection…</p>
+    <p class="bg-muted">@T.Loading</p>
 }
 else
 {
@@ -20,9 +22,9 @@ else
 
     <div class="bg-page-head">
         <div>
-            <h1>Anomaly report</h1>
+            <h1>@T.ReportTitle</h1>
             <p class="bg-muted">
-                @_report.DatasetName — @_report.TransactionCount.ToString("N0") transactions analysed,
+                @_report.DatasetName — @T.TransactionsAnalysed(_report.TransactionCount),
                 @_report.GeneratedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC
             </p>
         </div>
@@ -31,32 +33,32 @@ else
     <div class="bg-stats">
         <div class="bg-stat bg-sev-critical">
             <span class="bg-stat-value">@_report.Summary.Critical</span>
-            <span class="bg-stat-label">Critical</span>
+            <span class="bg-stat-label">@T.SeverityCritical</span>
         </div>
         <div class="bg-stat bg-sev-high">
             <span class="bg-stat-value">@_report.Summary.High</span>
-            <span class="bg-stat-label">High</span>
+            <span class="bg-stat-label">@T.SeverityHigh</span>
         </div>
         <div class="bg-stat bg-sev-medium">
             <span class="bg-stat-value">@_report.Summary.Medium</span>
-            <span class="bg-stat-label">Medium</span>
+            <span class="bg-stat-label">@T.SeverityMedium</span>
         </div>
         <div class="bg-stat bg-sev-low">
             <span class="bg-stat-value">@_report.Summary.Low</span>
-            <span class="bg-stat-label">Low</span>
+            <span class="bg-stat-label">@T.SeverityLow</span>
         </div>
         <div class="bg-stat bg-stat-accent">
             <span class="bg-stat-value">@_report.Summary.Corroborated</span>
-            <span class="bg-stat-label">Corroborated by 2+ methods</span>
+            <span class="bg-stat-label">@T.Corroborated</span>
         </div>
     </div>
 
     <section class="bg-card">
         <div class="bg-filters">
             <label>
-                Category
+                @T.FilterCategory
                 <select @bind="_category" @bind:after="ReloadAsync">
-                    <option value="">All categories</option>
+                    <option value="">@T.FilterAllCategories</option>
                     @foreach (var category in _allCategories)
                     {
                         <option value="@category">@category</option>
@@ -65,9 +67,9 @@ else
             </label>
 
             <label>
-                Department
+                @T.FilterDepartment
                 <select @bind="_department" @bind:after="ReloadAsync">
-                    <option value="">All departments</option>
+                    <option value="">@T.FilterAllDepartments</option>
                     @foreach (var department in _allDepartments)
                     {
                         <option value="@department">@department</option>
@@ -76,26 +78,24 @@ else
             </label>
 
             <label>
-                Minimum severity
+                @T.FilterSeverity
                 <select @bind="_minimumSeverity" @bind:after="ReloadAsync">
-                    <option value="">Any</option>
-                    <option value="@Severity.Medium">Medium and above</option>
-                    <option value="@Severity.High">High and above</option>
-                    <option value="@Severity.Critical">Critical only</option>
+                    <option value="">@T.FilterAny</option>
+                    <option value="@Severity.Medium">@T.FilterMediumAbove</option>
+                    <option value="@Severity.High">@T.FilterHighAbove</option>
+                    <option value="@Severity.Critical">@T.FilterCriticalOnly</option>
                 </select>
             </label>
 
             <span class="bg-muted bg-filter-note">
-                Filters narrow what is shown. They never change the population the
-                statistics were computed over.
+                @T.FilterNote
             </span>
         </div>
 
         @if (_report.Findings.Count == 0)
         {
             <p class="bg-muted">
-                No findings match these filters. On a clean dataset that is the expected
-                result — the engine is built to stay quiet on spending that behaves normally.
+                @T.NoFindings
             </p>
         }
         else
@@ -103,12 +103,12 @@ else
             <table class="bg-table bg-table-findings">
                 <thead>
                     <tr>
-                        <th>Severity</th>
-                        <th>Subject</th>
-                        <th>Category / Department</th>
-                        <th class="bg-num">Amount</th>
-                        <th class="bg-num">Risk</th>
-                        <th>Why it was flagged</th>
+                        <th>@T.ColSeverity</th>
+                        <th>@T.ColSubject</th>
+                        <th>@T.ColCategoryDepartment</th>
+                        <th class="bg-num">@T.ColAmount</th>
+                        <th class="bg-num">@T.ColRisk</th>
+                        <th>@T.ColWhyFlagged</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -116,17 +116,17 @@ else
                     {
                         <tr>
                             <td>
-                                <span class="bg-pill @SeverityClass(finding.Severity)">@finding.Severity</span>
+                                <span class="bg-pill @SeverityClass(finding.Severity)">@SeverityLabel(finding.Severity)</span>
                                 @if (finding.IsCorroborated)
                                 {
                                     <span class="bg-tag bg-tag-corroborated" title="Independent methods agree">
-                                        @finding.Detectors.Count methods
+                                        @T.MethodsCount(finding.Detectors.Count)
                                     </span>
                                 }
                             </td>
                             <td>
                                 <strong>@finding.SubjectLabel</strong>
-                                <div class="bg-muted bg-small">@finding.SubjectType</div>
+                                <div class="bg-muted bg-small">@SubjectLabel(finding.SubjectType)</div>
                             </td>
                             <td class="bg-muted bg-small">
                                 @(finding.Category ?? "—")
@@ -218,7 +218,7 @@ else
         }
         catch (BudgetGuard.Application.Common.Exceptions.NotFoundException)
         {
-            _error = "No dataset has been uploaded yet.";
+            _error = T.NoDatasetBody;
         }
     }
 
@@ -230,11 +230,23 @@ else
         _ => "bg-sev-low"
     };
 
-    private static string DetectorLabel(string detector) => detector switch
+    private string DetectorLabel(string detector) =>
+        Enum.TryParse<DetectorKind>(detector, out var kind)
+            ? Writer.DetectorName(kind)
+            : detector;
+
+    private string SeverityLabel(string severity) => severity switch
     {
-        nameof(DetectorKind.Benford) => "Benford's Law",
-        nameof(DetectorKind.ZScoreOutlier) => "Amount outlier",
-        nameof(DetectorKind.VendorConcentration) => "Vendor concentration",
-        _ => detector
+        nameof(Severity.Critical) => T.SeverityCritical,
+        nameof(Severity.High) => T.SeverityHigh,
+        nameof(Severity.Medium) => T.SeverityMedium,
+        _ => T.SeverityLow
+    };
+
+    private string SubjectLabel(string subjectType) => subjectType switch
+    {
+        nameof(AnomalySubjectType.Transaction) => T.SubjectTransaction,
+        nameof(AnomalySubjectType.Vendor) => T.SubjectVendor,
+        _ => T.SubjectDataset
     };
 }

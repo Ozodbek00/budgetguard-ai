@@ -1,3 +1,5 @@
+@inject IUiText T
+
 @* Expected versus observed first-digit distribution.
 
    Drawn as inline SVG rather than through a charting library. The chart has
@@ -68,13 +70,13 @@
               stroke="#9fb0c1" stroke-width="1.5" />
 
         @(SvgText(PlotLeft + PlotWidth / 2d, PlotTop + PlotHeight + 40,
-                  "Leading digit", "middle", 12, "#5a6a7d"))
+                  T.BenfordLeadingDigit, "middle", 12, "#5a6a7d"))
     </svg>
 
     <div class="bg-chart-legend">
-        <span><i class="swatch" style="background:#c8d3df"></i> Expected under Benford's Law</span>
-        <span><i class="swatch" style="background:#1c5d99"></i> Observed (within expectation)</span>
-        <span><i class="swatch" style="background:#a01d1d"></i> Observed (materially over-represented)</span>
+        <span><i class="swatch" style="background:#c8d3df"></i> @T.BenfordChartExpected</span>
+        <span><i class="swatch" style="background:#1c5d99"></i> @T.BenfordChartObserved</span>
+        <span><i class="swatch" style="background:#a01d1d"></i> @T.BenfordChartOver</span>
     </div>
 </div>
 

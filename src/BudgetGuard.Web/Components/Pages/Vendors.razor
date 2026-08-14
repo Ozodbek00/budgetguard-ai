@@ -1,17 +1,18 @@
 @page "/vendors"
 @inject ISender Sender
+@inject IUiText T
 
-<PageTitle>BudgetGuard AI — Vendor risk</PageTitle>
+<PageTitle>BudgetGuard AI — @T.NavVendors</PageTitle>
 
 @if (_error is not null)
 {
     <div class="bg-banner bg-banner-error">
-        <strong>No analysis available.</strong> @_error <a href="">Load a dataset first.</a>
+        <strong>@T.NoDatasetTitle</strong> @_error <a href="">@T.LoadDatasetFirst</a>
     </div>
 }
 else if (_risk is null)
 {
-    <p class="bg-muted">Computing supplier concentration…</p>
+    <p class="bg-muted">@T.Loading</p>
 }
 else
 {
@@ -19,33 +20,26 @@ else
 
     <div class="bg-page-head">
         <div>
-            <h1>Vendor risk</h1>
-            <p class="bg-muted">
-                @_risk.DatasetName — supplier share of spend within each category and department
-            </p>
+            <h1>@T.VendorsTitle</h1>
+            <p class="bg-muted">@_risk.DatasetName — @T.VendorsSubtitle</p>
         </div>
     </div>
 
     <section class="bg-card">
-        <h2>Market concentration by scope</h2>
-        <p class="bg-muted bg-small">
-            The Herfindahl-Hirschman Index is the sum of squared percentage market shares, from
-            near 0 (many equal suppliers) to 10,000 (a single supplier). Competition authorities
-            treat above 2,500 as highly concentrated. A scope scoring badly here is worth
-            reviewing as a procurement process even when no individual vendor crosses a threshold.
-        </p>
+        <h2>@T.ScopeConcentrationTitle</h2>
+        <p class="bg-muted bg-small">@T.ScopeConcentrationNote</p>
 
         <div class="bg-table-wrap">
             <table class="bg-table">
                 <thead>
                     <tr>
-                        <th>Scope</th>
-                        <th>Name</th>
-                        <th class="bg-num">Vendors</th>
-                        <th class="bg-num">Contracts</th>
-                        <th class="bg-num">Total spend</th>
-                        <th class="bg-num">HHI</th>
-                        <th>Largest supplier</th>
+                        <th>@T.ColScope</th>
+                        <th>@T.ColScopeName</th>
+                        <th class="bg-num">@T.ColVendors</th>
+                        <th class="bg-num">@T.ColContracts</th>
+                        <th class="bg-num">@T.ColTotalSpend</th>
+                        <th class="bg-num">@T.ColHhi</th>
+                        <th>@T.ColLargestSupplier</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -61,11 +55,11 @@ else
                                 <strong class="@(scope.IsHighlyConcentrated ? "bg-deviation-high" : "")">
                                     @scope.HerfindahlHirschmanIndex.ToString("N0")
                                 </strong>
-                                <div class="bg-muted bg-small">even split @scope.EvenSplitHhi.ToString("N0")</div>
+                                <div class="bg-muted bg-small">@T.EvenSplit @scope.EvenSplitHhi.ToString("N0")</div>
                             </td>
                             <td>
                                 @scope.TopVendorName
-                                <div class="bg-muted bg-small">@scope.TopVendorShare.ToString("P1") of spend</div>
+                                <div class="bg-muted bg-small">@scope.TopVendorShare.ToString("P1") @T.OfSpend</div>
                             </td>
                         </tr>
                     }
@@ -77,9 +71,9 @@ else
     <section class="bg-card">
         <div class="bg-filters">
             <label>
-                Scope type
+                @T.FilterScopeType
                 <select @bind="_scopeType" @bind:after="ReloadAsync">
-                    <option value="">All scopes</option>
+                    <option value="">@T.FilterAllScopes</option>
                     @foreach (var scopeType in _allScopeTypes)
                     {
                         <option value="@scopeType">@scopeType</option>
@@ -88,41 +82,37 @@ else
             </label>
 
             <label>
-                Show
+                @T.FilterShow
                 <select @bind="_flaggedOnly" @bind:after="ReloadAsync">
-                    <option value="false">All vendors</option>
-                    <option value="true">Flagged vendors only</option>
+                    <option value="false">@T.FilterAllVendors</option>
+                    <option value="true">@T.FilterFlaggedOnly</option>
                 </select>
             </label>
 
             <label>
-                Sort by
+                @T.SortBy
                 <select @bind="_sort">
-                    <option value="share">Share of scope spend</option>
-                    <option value="multiple">Multiple of expected share</option>
-                    <option value="contracts">Contract count</option>
-                    <option value="spend">Absolute spend</option>
+                    <option value="share">@T.SortShare</option>
+                    <option value="multiple">@T.SortMultiple</option>
+                    <option value="contracts">@T.SortContracts</option>
+                    <option value="spend">@T.SortSpend</option>
                 </select>
             </label>
 
-            <span class="bg-muted bg-filter-note">
-                Every vendor is listed, not only flagged ones: a share is only interpretable
-                against the field it sits in, so the whole distribution has to be visible to
-                judge any one flag.
-            </span>
+            <span class="bg-muted bg-filter-note">@T.VendorsNote</span>
         </div>
 
         <div class="bg-table-wrap">
             <table class="bg-table">
                 <thead>
                     <tr>
-                        <th>Vendor</th>
-                        <th>Scope</th>
-                        <th class="bg-num">Spend</th>
-                        <th>Share of scope</th>
-                        <th class="bg-num">vs expected</th>
-                        <th class="bg-num">Contracts</th>
-                        <th>Status</th>
+                        <th>@T.ColVendor</th>
+                        <th>@T.ColScope</th>
+                        <th class="bg-num">@T.ColSpend</th>
+                        <th>@T.ColShareOfScope</th>
+                        <th class="bg-num">@T.ColVsExpected</th>
+                        <th class="bg-num">@T.ColContracts</th>
+                        <th>@T.ColStatus</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -144,7 +134,7 @@ else
                                     <span class="bg-share-value">@vendor.SpendShare.ToString("P1")</span>
                                 </div>
                                 <div class="bg-muted bg-small">
-                                    even split would be @vendor.ExpectedShare.ToString("P1")
+                                    @T.EvenSplitWouldBe @vendor.ExpectedShare.ToString("P1")
                                 </div>
                             </td>
                             <td class="bg-num">
@@ -155,7 +145,7 @@ else
                             <td class="bg-num">
                                 @vendor.ContractCount.ToString("N0")
                                 <div class="bg-muted bg-small">
-                                    exp. @vendor.ExpectedContractCount.ToString("N1")
+                                    @T.ExpectedShort @vendor.ExpectedContractCount.ToString("N1")
                                     @if (vendor.ContractCountZScore is { } z)
                                     {
                                         <text> (@z.ToString("F1")σ)</text>
@@ -165,15 +155,15 @@ else
                             <td>
                                 @if (vendor.IsFlagged)
                                 {
-                                    <span class="bg-pill bg-sev-high">Flagged</span>
+                                    <span class="bg-pill bg-sev-high">@T.StatusFlagged</span>
                                     <details class="bg-details">
-                                        <summary>Why</summary>
+                                        <summary>@T.Why</summary>
                                         <p class="bg-small">@vendor.Explanation</p>
                                     </details>
                                 }
                                 else
                                 {
-                                    <span class="bg-muted bg-small">Within thresholds</span>
+                                    <span class="bg-muted bg-small">@T.StatusWithinThresholds</span>
                                 }
                             </td>
                         </tr>
@@ -184,10 +174,7 @@ else
 
         @if (_risk.Vendors.Count == 0)
         {
-            <p class="bg-muted">
-                No scope in this dataset had enough vendors and contracts to support a
-                concentration judgement.
-            </p>
+            <p class="bg-muted">@T.NoScopes</p>
         }
     </section>
 }
@@ -227,7 +214,7 @@ else
         }
         catch (BudgetGuard.Application.Common.Exceptions.NotFoundException)
         {
-            _error = "No dataset has been uploaded yet.";
+            _error = T.NoDatasetBody;
         }
     }
 

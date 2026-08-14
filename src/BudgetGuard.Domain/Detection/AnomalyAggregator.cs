@@ -1,5 +1,7 @@
+using System.Globalization;
 using BudgetGuard.Domain.Detection.Benford;
 using BudgetGuard.Domain.Detection.Concentration;
+using BudgetGuard.Domain.Detection.Explanations;
 using BudgetGuard.Domain.Detection.Outliers;
 using BudgetGuard.Domain.Entities;
 
@@ -45,16 +47,29 @@ public sealed class AnomalyAggregator : IAnomalyAggregator
     private readonly IVendorConcentrationAnalyzer _concentration;
     private readonly DetectionSettings _settings;
 
+    private readonly IExplanationWriter _writer;
+
+    /// <param name="benford">First-digit analyser.</param>
+    /// <param name="outliers">Peer-relative amount outlier detector.</param>
+    /// <param name="concentration">Supplier concentration analyser.</param>
+    /// <param name="settings">Scoring weights and severity bands.</param>
+    /// <param name="writer">
+    /// Language for evidence labels. Must be the same language the detectors
+    /// were given, or a finding's sentence and its evidence table would
+    /// disagree. The composition root wires all four from one culture.
+    /// </param>
     public AnomalyAggregator(
         IBenfordAnalyzer benford,
         IZScoreOutlierDetector outliers,
         IVendorConcentrationAnalyzer concentration,
-        DetectionSettings settings)
+        DetectionSettings settings,
+        IExplanationWriter? writer = null)
     {
         _benford = benford ?? throw new ArgumentNullException(nameof(benford));
         _outliers = outliers ?? throw new ArgumentNullException(nameof(outliers));
         _concentration = concentration ?? throw new ArgumentNullException(nameof(concentration));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _writer = writer ?? new EnglishExplanationWriter();
     }
 
     /// <inheritdoc />
@@ -151,14 +166,14 @@ public sealed class AnomalyAggregator : IAnomalyAggregator
             explanation: f.Explanation,
             evidence: new Dictionary<string, string>
             {
-                ["Method"] = f.Method.ToString(),
-                ["Grouping"] = f.Grouping.ToString(),
-                ["Peer group"] = f.GroupKey,
-                ["Peer group size"] = f.GroupSize.ToString("N0"),
-                ["Test statistic"] = f.Score.ToString("F2"),
-                ["Threshold"] = f.Threshold.ToString("F2"),
-                ["Group centre"] = f.GroupCentre.ToString("N0"),
-                ["Group dispersion"] = f.GroupDispersion.ToString("N0")
+                [Label(EvidenceKey.Method)] = f.Method.ToString(),
+                [Label(EvidenceKey.Grouping)] = f.Grouping.ToString(),
+                [Label(EvidenceKey.PeerGroup)] = f.GroupKey,
+                [Label(EvidenceKey.PeerGroupSize)] = N0(f.GroupSize),
+                [Label(EvidenceKey.TestStatistic)] = F2(f.Score),
+                [Label(EvidenceKey.Threshold)] = F2(f.Threshold),
+                [Label(EvidenceKey.GroupCentre)] = N0(f.GroupCentre),
+                [Label(EvidenceKey.GroupDispersion)] = N0(f.GroupDispersion)
             }));
 
     private IEnumerable<AnomalySignal> ConcentrationSignals(VendorConcentrationResult result) =>
@@ -171,16 +186,16 @@ public sealed class AnomalyAggregator : IAnomalyAggregator
             explanation: f.Explanation,
             evidence: new Dictionary<string, string>
             {
-                ["Scope"] = $"{f.Scope} \"{f.ScopeKey}\"",
-                ["Vendor spend"] = f.Spend.ToString("N0"),
-                ["Scope spend"] = f.ScopeTotalSpend.ToString("N0"),
-                ["Spend share"] = DetectionFormat.Percent(f.SpendShare),
-                ["Even-split expectation"] = DetectionFormat.Percent(f.ExpectedShare),
-                ["Excess multiple"] = $"{f.ExcessMultiple:F1}x",
-                ["Contracts held"] = $"{f.ContractCount:N0} of {f.ScopeTransactionCount:N0}",
-                ["Contracts expected by chance"] = f.ExpectedContractCount.ToString("N1"),
-                ["Contract count excess"] = $"{f.ContractCountZScore:F1} sigma",
-                ["Vendors in scope"] = f.VendorsInScope.ToString("N0")
+                [Label(EvidenceKey.Scope)] = $"{f.Scope} \"{f.ScopeKey}\"",
+                [Label(EvidenceKey.VendorSpend)] = N0(f.Spend),
+                [Label(EvidenceKey.ScopeSpend)] = N0(f.ScopeTotalSpend),
+                [Label(EvidenceKey.SpendShare)] = DetectionFormat.Percent(f.SpendShare),
+                [Label(EvidenceKey.EvenSplitExpectation)] = DetectionFormat.Percent(f.ExpectedShare),
+                [Label(EvidenceKey.ExcessMultiple)] = $"{F1(f.ExcessMultiple)}x",
+                [Label(EvidenceKey.ContractsHeld)] = $"{N0(f.ContractCount)} / {N0(f.ScopeTransactionCount)}",
+                [Label(EvidenceKey.ContractsExpectedByChance)] = N1(f.ExpectedContractCount),
+                [Label(EvidenceKey.ContractCountExcess)] = $"{F1(f.ContractCountZScore)} sigma",
+                [Label(EvidenceKey.VendorsInScope)] = N0(f.VendorsInScope)
             }));
 
     /// <summary>
@@ -200,17 +215,33 @@ public sealed class AnomalyAggregator : IAnomalyAggregator
             0d,
             1d);
 
-    private static Dictionary<string, string> BenfordEvidence(BenfordResult result) =>
+    private Dictionary<string, string> BenfordEvidence(BenfordResult result) =>
         new()
         {
-            ["Sample size"] = result.SampleSize.ToString("N0"),
-            ["Excluded (zero/negative)"] = result.ExcludedCount.ToString("N0"),
-            ["Mean absolute deviation"] = result.MeanAbsoluteDeviation.ToString("F4"),
-            ["Threshold applied"] = result.EffectiveMadThreshold.ToString("F4"),
-            ["Conformity"] = result.Conformity.ToString(),
-            ["Chi-square"] = result.ChiSquare.ToString("F2"),
-            ["Chi-square critical value"] = result.ChiSquareCriticalValue.ToString("F3")
+            [Label(EvidenceKey.SampleSize)] = N0(result.SampleSize),
+            [Label(EvidenceKey.ExcludedAmounts)] = N0(result.ExcludedCount),
+            [Label(EvidenceKey.MeanAbsoluteDeviation)] = F4(result.MeanAbsoluteDeviation),
+            [Label(EvidenceKey.ThresholdApplied)] = F4(result.EffectiveMadThreshold),
+            [Label(EvidenceKey.Conformity)] = result.Conformity.ToString(),
+            [Label(EvidenceKey.ChiSquare)] = F2(result.ChiSquare),
+            [Label(EvidenceKey.ChiSquareCriticalValue)] = F3(result.ChiSquareCriticalValue)
         };
+
+    /// <summary>
+    /// Evidence keys are localised for display. The API's JSON therefore keys
+    /// on the caller's language — deliberate, because these are labels for a
+    /// human reading a drill-down panel, not a machine-readable contract. The
+    /// typed <see cref="EvidenceKey"/> is the stable identifier behind them.
+    /// </summary>
+    private string Label(EvidenceKey key) => _writer.EvidenceLabel(key);
+
+    private static string N0(decimal v) => v.ToString("N0", CultureInfo.InvariantCulture);
+    private static string N0(int v) => v.ToString("N0", CultureInfo.InvariantCulture);
+    private static string N1(double v) => v.ToString("N1", CultureInfo.InvariantCulture);
+    private static string F1(double v) => v.ToString("F1", CultureInfo.InvariantCulture);
+    private static string F2(double v) => v.ToString("F2", CultureInfo.InvariantCulture);
+    private static string F3(double v) => v.ToString("F3", CultureInfo.InvariantCulture);
+    private static string F4(double v) => v.ToString("F4", CultureInfo.InvariantCulture);
 
     /// <summary>
     /// Merges signals by subject and computes each subject's combined risk score.

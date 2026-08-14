@@ -1,3 +1,4 @@
+using BudgetGuard.Domain.Detection.Explanations;
 using BudgetGuard.Domain.Entities;
 
 namespace BudgetGuard.Domain.Detection.Outliers;
@@ -54,9 +55,15 @@ public sealed class ZScoreOutlierDetector : IZScoreOutlierDetector
     private const double MeanAbsoluteDeviationConstant = 1.253314;
 
     private readonly ZScoreSettings _settings;
+    private readonly IExplanationWriter _writer;
 
-    public ZScoreOutlierDetector(ZScoreSettings settings) =>
+    /// <param name="settings">Thresholds. See <see cref="ZScoreSettings"/>.</param>
+    /// <param name="writer">Language the finding sentence is written in. Defaults to English.</param>
+    public ZScoreOutlierDetector(ZScoreSettings settings, IExplanationWriter? writer = null)
+    {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _writer = writer ?? new EnglishExplanationWriter();
+    }
 
     /// <inheritdoc />
     public IReadOnlyList<OutlierFinding> Detect(IReadOnlyList<ProcurementTransaction> transactions)
@@ -267,66 +274,21 @@ public sealed class ZScoreOutlierDetector : IZScoreOutlierDetector
         // the other detectors' [0,1] outputs.
         var normalised = Math.Clamp(Math.Abs(score) / (2d * threshold), 0d, 1d);
 
-        var groupingLabel = grouping switch
-        {
-            OutlierGrouping.Vendor => "vendor",
-            OutlierGrouping.Category => "category",
-            _ => "department"
-        };
+        var explanation = _writer.Outlier(new OutlierExplanationContext(
+            transaction.ExternalReference,
+            transaction.Amount,
+            transaction.Currency,
+            transaction.VendorName,
+            grouping,
+            groupKey,
+            groupSize,
+            method,
+            _settings.Transform,
+            score,
+            threshold,
+            centre,
+            dispersion));
 
-        var direction = score > 0 ? "above" : "below";
-        var isLog = _settings.Transform == AmountTransform.Log10;
-
-        var unit = method == OutlierMethod.ClassicZScore
-            ? "standard deviations"
-            : "modified z-score units";
-
-        var opening =
-            $"Payment {transaction.ExternalReference} of {transaction.Amount:N0} {transaction.Currency} " +
-            $"to \"{transaction.VendorName}\" is {Math.Abs(score):F1} {unit} {direction} ";
-
-        // Under a log comparison the centre is a geometric mean and the
-        // dispersion is a multiplicative factor, so both are worded as such
-        // rather than presented as a currency spread that would not add up.
-        var basis = (method, isLog) switch
-        {
-            (OutlierMethod.ClassicZScore, true) =>
-                $"the typical payment for {groupingLabel} \"{groupKey}\" " +
-                $"(geometric mean {centre:N0} {transaction.Currency}; one standard deviation is a " +
-                $"factor of {dispersion:N1}x, across {groupSize:N0} payments)",
-
-            (OutlierMethod.ClassicZScore, false) =>
-                $"the mean for {groupingLabel} \"{groupKey}\" " +
-                $"(mean {centre:N0}, standard deviation {dispersion:N0} across {groupSize:N0} payments)",
-
-            (_, true) =>
-                $"the median payment for {groupingLabel} \"{groupKey}\" " +
-                $"(median {centre:N0} {transaction.Currency}; median absolute deviation is a factor of " +
-                $"{dispersion:N1}x, across {groupSize:N0} payments)",
-
-            _ =>
-                $"the median for {groupingLabel} \"{groupKey}\" " +
-                $"(median {centre:N0}, median absolute deviation {dispersion:N0} across {groupSize:N0} payments)"
-        };
-
-        var closing = $". The flag threshold is {threshold:F1} {unit}.";
-
-        if (isLog)
-        {
-            closing +=
-                " Amounts are compared on a logarithmic scale, so this measures how many times larger " +
-                "or smaller the payment is than its peers rather than by how many units — the correct " +
-                "comparison for spending, which is heavily right-skewed.";
-        }
-
-        if (method == OutlierMethod.ModifiedZScore)
-        {
-            closing +=
-                " This statistic is built on the median rather than the mean, so a large payment cannot " +
-                "hide behind the dispersion it creates.";
-        }
-
-        var explanation = opening + basis + closing;
 
         return new OutlierFinding(
             transaction.Id,

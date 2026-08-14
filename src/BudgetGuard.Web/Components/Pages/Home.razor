@@ -1,40 +1,36 @@
 @page "/"
 @inject ISender Sender
 @inject NavigationManager Navigation
+@inject IUiText T
 
-<PageTitle>BudgetGuard AI — Upload a dataset</PageTitle>
+<PageTitle>BudgetGuard AI — @T.NavUpload</PageTitle>
 
 <div class="bg-hero">
-    <h1>Find the spending that does not add up — and explain why.</h1>
+    <h1>@T.HeroTitle</h1>
     <p>
-        BudgetGuard AI screens procurement and budget data with three statistical tests
-        auditors can check by hand: first-digit conformity (Benford's Law), peer-relative
-        amount outliers, and supplier concentration. Every flag comes with the arithmetic
-        behind it, so you can verify it rather than trust it.
+        @T.HeroBody
     </p>
 </div>
 
 <div class="bg-grid-2">
     <section class="bg-card">
-        <h2>Load the demo dataset</h2>
+        <h2>@T.DemoTitle</h2>
         <p class="bg-muted">
-            The fastest way to see the tool work. Generates a synthetic procurement ledger
-            with deliberately planted anomalies — threshold evasion, a round-number invoicing
-            vendor, a supplier capturing one category, and several extreme payments.
+            @T.DemoBody
         </p>
 
         <button class="bg-btn bg-btn-primary" @onclick="LoadDemoAsync" disabled="@_isBusy">
-            @(_isBusy && _busyAction == BusyAction.Demo ? "Generating…" : "Load demo dataset")
+            @(_isBusy && _busyAction == BusyAction.Demo ? T.DemoGenerating : T.DemoButton)
         </button>
 
         @if (_demoResult is not null)
         {
             <div class="bg-banner bg-banner-ok">
-                <strong>@(_demoResult.AlreadyExisted ? "Demo dataset ready." : "Demo dataset generated.")</strong>
-                @_demoResult.RowCount.ToString("N0") transactions.
+                <strong>@T.DemoReady</strong>
+                @T.TransactionsAnalysed(_demoResult.RowCount)
 
                 <details class="bg-details">
-                    <summary>What was planted in it (ground truth)</summary>
+                    <summary>@T.DemoPlanted</summary>
                     <ul>
                         @foreach (var planted in _demoResult.PlantedAnomalies)
                         {
@@ -47,30 +43,25 @@
     </section>
 
     <section class="bg-card">
-        <h2>Upload your own data</h2>
+        <h2>@T.UploadTitle</h2>
         <p class="bg-muted">
-            CSV or Excel (.xlsx), up to @MaxUploadMegabytes MB.
-            Required columns: <code>TransactionDate</code>, <code>Amount</code>,
-            <code>VendorName</code>, <code>Category</code>, <code>Department</code>.
-            Optional: <code>ExternalReference</code>, <code>Currency</code>,
-            <code>Description</code>. Common alternative names such as
-            <code>Supplier</code> or <code>Ministry</code> are recognised automatically.
+            @T.UploadBody
         </p>
 
         <label class="bg-dropzone">
             <InputFile OnChange="OnFileSelectedAsync" accept=".csv,.xlsx" disabled="@_isBusy" />
-            <span>@(_selectedFileName ?? "Choose a CSV or Excel file")</span>
+            <span>@(_selectedFileName ?? T.UploadChooseFile)</span>
         </label>
 
         @if (_isBusy && _busyAction == BusyAction.Upload)
         {
-            <p class="bg-muted">Parsing and analysing…</p>
+            <p class="bg-muted">@T.UploadWorking</p>
         }
 
         @if (_uploadErrors.Count > 0)
         {
             <div class="bg-banner bg-banner-error">
-                <strong>The file could not be used.</strong>
+                <strong>@T.UploadFailed</strong>
                 <ul>
                     @foreach (var error in _uploadErrors)
                     {
@@ -83,15 +74,14 @@
         @if (_uploadResult is not null)
         {
             <div class="bg-banner bg-banner-ok">
-                <strong>Uploaded.</strong>
-                @_uploadResult.RowsAccepted.ToString("N0") rows accepted.
+                <strong>@T.UploadAccepted(_uploadResult.RowsAccepted)</strong>
 
                 @if (_uploadResult.RowsSkipped > 0)
                 {
-                    <text> @_uploadResult.RowsSkipped.ToString("N0") rows skipped.</text>
+                    <text> @T.UploadSkipped(_uploadResult.RowsSkipped)</text>
 
                     <details class="bg-details">
-                        <summary>Why rows were skipped</summary>
+                        <summary>@T.UploadWhySkipped</summary>
                         <ul>
                             @foreach (var warning in _uploadResult.Warnings)
                             {
@@ -108,14 +98,14 @@
 @if (_datasets.Count > 0)
 {
     <section class="bg-card">
-        <h2>Stored datasets</h2>
+        <h2>@T.StoredDatasets</h2>
         <table class="bg-table">
             <thead>
                 <tr>
-                    <th>Name</th>
-                    <th>Source</th>
-                    <th class="bg-num">Rows</th>
-                    <th>Uploaded</th>
+                    <th>@T.ColName</th>
+                    <th>@T.ColSource</th>
+                    <th class="bg-num">@T.ColRows</th>
+                    <th>@T.ColUploaded</th>
                     <th></th>
                 </tr>
             </thead>
@@ -134,7 +124,7 @@
                         <td class="bg-num">@dataset.RowCount.ToString("N0")</td>
                         <td class="bg-muted">@dataset.UploadedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
                         <td>
-                            <a class="bg-btn bg-btn-small" href="@($"report?datasetId={dataset.Id}")">Analyse</a>
+                            <a class="bg-btn bg-btn-small" href="@($"report?datasetId={dataset.Id}")">@T.ActionAnalyse</a>
                         </td>
                     </tr>
                 }

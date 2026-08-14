@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using BudgetGuard.Application.Common.Exceptions;
 using BudgetGuard.Application.Common.Interfaces;
 using BudgetGuard.Domain.Detection;
+using BudgetGuard.Domain.Detection.Explanations;
 using BudgetGuard.Domain.Entities;
 
 namespace BudgetGuard.Application.Analysis.Services;
@@ -37,9 +38,16 @@ public interface IAnalysisService
 /// </summary>
 public interface IAnalysisCache
 {
-    bool TryGet(Guid datasetId, out DatasetAnalysis analysis);
+    /// <param name="datasetId">Dataset the analysis belongs to.</param>
+    /// <param name="languageTag">
+    /// Language the explanations were written in. Part of the key because the
+    /// cached report contains rendered sentences: without it, the first visitor
+    /// would fix the language for everyone who followed.
+    /// </param>
+    /// <param name="analysis">The cached analysis, when present.</param>
+    bool TryGet(Guid datasetId, string languageTag, out DatasetAnalysis analysis);
 
-    void Set(Guid datasetId, DatasetAnalysis analysis);
+    void Set(Guid datasetId, string languageTag, DatasetAnalysis analysis);
 }
 
 /// <summary>Bounded in-memory analysis cache. Evicts the oldest entry when full.</summary>
@@ -50,29 +58,35 @@ public sealed class AnalysisCache : IAnalysisCache
     /// pipeline, not to be a general-purpose cache, and an unbounded dictionary
     /// on a long-running demo instance would simply be a leak.
     /// </summary>
-    private const int Capacity = 8;
+    /// <summary>
+    /// Deliberately small, and sized per dataset-and-language pair: three
+    /// languages means one dataset can occupy three slots.
+    /// </summary>
+    private const int Capacity = 12;
 
-    private readonly ConcurrentDictionary<Guid, DatasetAnalysis> _entries = new();
+    private readonly ConcurrentDictionary<(Guid, string), DatasetAnalysis> _entries = new();
 
-    public bool TryGet(Guid datasetId, out DatasetAnalysis analysis) =>
-        _entries.TryGetValue(datasetId, out analysis!);
+    public bool TryGet(Guid datasetId, string languageTag, out DatasetAnalysis analysis) =>
+        _entries.TryGetValue((datasetId, languageTag), out analysis!);
 
-    public void Set(Guid datasetId, DatasetAnalysis analysis)
+    public void Set(Guid datasetId, string languageTag, DatasetAnalysis analysis)
     {
-        if (_entries.Count >= Capacity && !_entries.ContainsKey(datasetId))
+        var key = (datasetId, languageTag);
+
+        if (_entries.Count >= Capacity && !_entries.ContainsKey(key))
         {
             var oldest = _entries
                 .OrderBy(e => e.Value.GeneratedAtUtc)
                 .Select(e => e.Key)
                 .FirstOrDefault();
 
-            if (oldest != Guid.Empty)
+            if (oldest != default)
             {
                 _entries.TryRemove(oldest, out _);
             }
         }
 
-        _entries[datasetId] = analysis;
+        _entries[key] = analysis;
     }
 }
 
@@ -81,6 +95,7 @@ public sealed class AnalysisService(
     IDatasetRepository repository,
     IAnomalyAggregator aggregator,
     IAnalysisCache cache,
+    IExplanationWriter explanationWriter,
     TimeProvider timeProvider) : IAnalysisService
 {
     /// <inheritdoc />
@@ -94,7 +109,9 @@ public sealed class AnalysisService(
             : await repository.GetMostRecentAsync(cancellationToken)
               ?? throw new NotFoundException(nameof(Dataset), "most recent");
 
-        if (cache.TryGet(dataset.Id, out var cached))
+        var language = explanationWriter.LanguageTag;
+
+        if (cache.TryGet(dataset.Id, language, out var cached))
         {
             return cached;
         }
@@ -103,7 +120,7 @@ public sealed class AnalysisService(
         var report = aggregator.Analyze(transactions, dataset.Name);
 
         var analysis = new DatasetAnalysis(dataset, report, timeProvider.GetUtcNow());
-        cache.Set(dataset.Id, analysis);
+        cache.Set(dataset.Id, language, analysis);
 
         return analysis;
     }

@@ -1,4 +1,5 @@
 using System.Globalization;
+using BudgetGuard.Domain.Detection.Explanations;
 
 namespace BudgetGuard.Domain.Detection.Benford;
 
@@ -57,8 +58,18 @@ public sealed class BenfordAnalyzer : IBenfordAnalyzer
     /// </summary>
     private const double NullMadCoefficient = 0.2348;
 
-    public BenfordAnalyzer(BenfordSettings settings) =>
+    private readonly IExplanationWriter _writer;
+
+    /// <param name="settings">Thresholds. See <see cref="BenfordSettings"/>.</param>
+    /// <param name="writer">
+    /// Language the verdict sentence is written in. Defaults to English, which
+    /// is the reference rendering the API serves and the test suite asserts on.
+    /// </param>
+    public BenfordAnalyzer(BenfordSettings settings, IExplanationWriter? writer = null)
+    {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _writer = writer ?? new EnglishExplanationWriter();
+    }
 
     /// <summary>
     /// The Mean Absolute Deviation expected purely from sampling noise for a
@@ -142,9 +153,7 @@ public sealed class BenfordAnalyzer : IBenfordAnalyzer
                 ChiSquare: 0d,
                 _settings.ChiSquareCriticalValue,
                 BenfordConformity.InsufficientData,
-                $"Only {sampleSize:N0} usable amount(s) available for {populationLabel}; " +
-                $"at least {_settings.MinimumSampleSize:N0} are required before a first-digit " +
-                "verdict is statistically meaningful. No conclusion drawn.",
+                _writer.BenfordInsufficientData(populationLabel, sampleSize, _settings.MinimumSampleSize),
                 populationLabel,
                 EffectiveThreshold(sampleSize));
         }
@@ -166,7 +175,17 @@ public sealed class BenfordAnalyzer : IBenfordAnalyzer
             chiSquare,
             _settings.ChiSquareCriticalValue,
             conformity,
-            BuildExplanation(buckets, sampleSize, mad, chiSquare, conformity, populationLabel, effectiveThreshold),
+            _writer.Benford(new BenfordExplanationContext(
+                populationLabel,
+                sampleSize,
+                mad,
+                effectiveThreshold,
+                _settings.MadNonConformityThreshold,
+                ExpectedMadFromSamplingNoise(sampleSize),
+                chiSquare,
+                _settings.ChiSquareCriticalValue,
+                conformity,
+                buckets.MaxBy(b => b.DeviationPercentagePoints)!)),
             populationLabel,
             effectiveThreshold);
     }
@@ -219,56 +238,4 @@ public sealed class BenfordAnalyzer : IBenfordAnalyzer
         return buckets;
     }
 
-    private string BuildExplanation(
-        IReadOnlyList<BenfordDigitBucket> buckets,
-        int sampleSize,
-        double mad,
-        double chiSquare,
-        BenfordConformity conformity,
-        string populationLabel,
-        double effectiveThreshold)
-    {
-        var worst = buckets.MaxBy(b => b.DeviationPercentagePoints)!;
-
-        var verdict = conformity switch
-        {
-            BenfordConformity.Close =>
-                "closely follows Benford's Law — consistent with naturally occurring spending",
-            BenfordConformity.Acceptable =>
-                "acceptably follows Benford's Law — no digit-level concern",
-            BenfordConformity.MarginallyAcceptable =>
-                "is marginally outside Benford conformity — worth reviewing, not conclusive",
-            _ =>
-                "does not follow Benford's Law, which is consistent with amounts having been " +
-                "manufactured, rounded, or split rather than arising naturally"
-        };
-
-        var noiseFloor = ExpectedMadFromSamplingNoise(sampleSize);
-
-        var thresholdBasis = effectiveThreshold > _settings.MadNonConformityThreshold
-            ? $"{effectiveThreshold:F4}, raised above the standard {_settings.MadNonConformityThreshold:F3} " +
-              $"band because a sample of only {sampleSize:N0} amounts would show a deviation of about " +
-              $"{noiseFloor:F4} by chance alone"
-            : $"{effectiveThreshold:F4}";
-
-        var headline =
-            $"The first-digit distribution for {populationLabel} {verdict}. " +
-            $"Mean Absolute Deviation is {mad:F4} against a non-conformity threshold of " +
-            $"{thresholdBasis} (measured over {sampleSize:N0} amounts).";
-
-        var digitDetail =
-            $" The largest single deviation is digit {worst.Digit}: it leads " +
-            $"{DetectionFormat.Percent(worst.ObservedProportion)} of amounts where Benford's Law predicts " +
-            $"{DetectionFormat.Percent(worst.ExpectedProportion)} — {worst.ObservedCount:N0} observed against " +
-            $"{worst.ExpectedCount:N0} expected, an excess of {worst.ExcessCount:N0}.";
-
-        var chiDetail =
-            $" Chi-square is {chiSquare:F1} against a critical value of " +
-            $"{_settings.ChiSquareCriticalValue:F3} at 8 degrees of freedom" +
-            (chiSquare > _settings.ChiSquareCriticalValue
-                ? " (also rejects conformity)."
-                : " (does not reject conformity).");
-
-        return headline + digitDetail + chiDetail;
-    }
 }

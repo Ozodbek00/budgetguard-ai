@@ -78,6 +78,22 @@ html, body {
 .bg-nav-link:hover { background: var(--canvas); color: var(--ink); }
 .bg-nav-link.active { background: var(--accent); color: #fff; }
 
+.bg-lang { display: flex; gap: 0.15rem; align-items: center; }
+
+.bg-lang-link {
+    padding: 0.28rem 0.5rem;
+    border-radius: 5px;
+    text-decoration: none;
+    color: var(--ink-soft);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    border: 1px solid transparent;
+}
+
+.bg-lang-link:hover { background: var(--canvas); color: var(--ink); }
+.bg-lang-link.active { border-color: var(--line); background: var(--canvas); color: var(--accent-dark); }
+
 .bg-main { flex: 1; width: 100%; max-width: 1280px; margin: 0 auto; padding: 1.75rem; }
 
 .bg-footer {
