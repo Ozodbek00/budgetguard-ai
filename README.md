@@ -5,6 +5,8 @@ spending.** Upload a spending dataset; get back a ranked list of anomalies where
 every flag comes with the arithmetic behind it, in a sentence an auditor can
 verify by hand.
 
+Built for **Uzbekistan's President AI Award — Government AI track**.
+
 ### ▶ Live demo: **<https://budgetguard-ai.proread.uz>**
 ### ▶ API and Swagger: **<https://budgetguard-api.proread.uz>**
 
@@ -179,6 +181,7 @@ one implementation of every use case.
 | [DATA_MODEL.md](docs/DATA_MODEL.md) | Entities, input schema, accepted column names, parsing rules |
 | [CODING_STANDARDS.md](docs/CODING_STANDARDS.md) | Handler patterns, error handling, localisation, the five load-bearing rules |
 | [CONTRIBUTING.md](docs/CONTRIBUTING.md) | Local setup, tests, deployment steps, adding a detection rule |
+| [UZBEK_DOMAIN_REFERENCE.md](docs/UZBEK_DOMAIN_REFERENCE.md) | Regions, vendor naming, amount calibration — and what is assumed rather than verified |
 | [ADR 0001](docs/adr/0001-clean-architecture-cqrs.md) | Clean Architecture + CQRS |
 | [ADR 0002](docs/adr/0002-sqlite-over-postgres-for-mvp.md) | SQLite rather than PostgreSQL |
 | [ADR 0003](docs/adr/0003-blazor-server-over-spa.md) | Blazor Server rather than a SPA |

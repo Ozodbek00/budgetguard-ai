@@ -327,6 +327,67 @@ Stated plainly, because a forensic tool that oversells itself is worse than none
 
 ---
 
+## Planned detectors
+
+Three further patterns are specified but not yet implemented. They are recorded
+here rather than left as a wishlist because each has a defined statistic, a
+defined threshold and a known false-positive mode — the same bar the three
+shipped detectors are held to.
+
+### Structuring / contract splitting
+
+**Pattern.** Awards priced just below an approval ceiling, or several awards to
+one vendor that each sit under the gate but together exceed it. This is the most
+recognisable procurement manipulation there is, and it is what the demo dataset
+already plants.
+
+**Why it is not redundant with Benford.** Benford currently detects the
+*symptom* — an excess of amounts leading with the digit below the ceiling — at
+dataset level only. It cannot say which contracts, which vendor, or which
+ceiling. A dedicated detector names the pattern and points at the rows.
+
+**Statistic.** For a configured ceiling `C`, flag amounts in `[0.9C, C)`, and
+separately flag any vendor with `n` awards inside that band within a rolling
+window whose sum exceeds `C`.
+
+**False-positive risk.** Ceilings create genuine bunching even in honest
+procurement — buyers legitimately scope work to avoid a slower tender. Volume
+below the gate is a question, not an answer.
+
+### Duplicate payments
+
+**Pattern.** The same vendor paid the same amount on the same date, or within a
+few days. Classic double-billing, and often simple error rather than fraud —
+which still matters, because it is recoverable money.
+
+**Statistic.** Exact match on (vendor, amount) with dates within a configurable
+window. Near-duplicates — same vendor and date with amounts within a small
+tolerance — are a useful second tier.
+
+**False-positive risk.** Legitimate recurring payments of identical value
+(rent, instalments, per-unit deliveries) look identical to double-billing.
+Needs a suppression list or a recurrence test before it is usable.
+
+### Year-end spending spikes
+
+**Pattern.** "Use it or lose it" budget dumping — a burst of disbursement in the
+final weeks of the fiscal year, driven by budgets that do not roll over.
+
+**Statistic.** Compare each department's or region's December spend against its
+own monthly baseline for the year; flag on a z-score of the monthly series
+rather than a fixed multiple, so a department with genuinely seasonal spending
+is judged against its own pattern.
+
+**False-positive risk.** Some spending is legitimately seasonal — heating fuel,
+academic-year purchasing. This detector is only meaningful with at least a full
+year of data, and reads better across several years.
+
+**Prerequisite.** This is the detector that most needs the dimension the model
+currently lacks: analysis is dataset-wide, with no notion of period. Adding a
+time axis is the shared groundwork.
+
+---
+
 ## Validation approach
 
 Correctness is the product, so the detectors are tested against ground truth
